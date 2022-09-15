@@ -1,23 +1,34 @@
+from PIL import Image
 import torch, torchvision
+from torchvision import datasets
 from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
+import utils
 
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn()
-# For training
-images, boxes = torch.rand(4, 3, 600, 1200), torch.rand(4, 11, 4)
-boxes[:, :, 2:4] = boxes[:, :, 0:2] + boxes[:, :, 2:4]
-labels = torch.randint(1, 91, (4, 11))
-images = list(image for image in images)
-targets = []
-for i in range(len(images)):
-    d = {}
-    d['boxes'] = boxes[i]
-    d['labels'] = labels[i]
-    targets.append(d)
-output = model(images, targets)
-# For inference
+
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT)
+# Training
+
+
+#output = model(images, targets)
+
+
+# Evaluation
 model.eval()
-x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]
-predictions = model(x)
+
+testdata = []
+#data = Image.open("./data/sample/01.jpg")
+#testdata.append(torchvision.transforms.ToTensor()(data))
+data = Image.open("./data/sample/02.jpg")
+testdata.append(torchvision.transforms.ToTensor()(data))
+
+#testdataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False)
+
+predictions = model(testdata)
+utils.print_dataset(predictions[0])
+#utils.print_dataset(predictions[1])
+utils.show_dataset(data, predictions[0])
 
 # optionally, if you want to export the model to ONNX:
-torch.onnx.export(model, x, "faster_rcnn.onnx", opset_version = 11)
+#torch.onnx.export(model, x, "faster_rcnn.onnx", opset_version = 11)
+
+
