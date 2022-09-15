@@ -16,9 +16,7 @@ def generate_python_captcha(labels: dict, number_of_chars: int = 0, boxes: bool 
         f"captchas/{content}.png", boxes=boxes
     )
 
-    labels[content] = [
-        {"class": content[idx], "x1": x1, "y1": y1, "x2": x2, "y2": y2}
-        for idx, ((x1, y1), (x2, y2)) in enumerate(offset_points)]
+    labels[content] = {"boxes": [[x1, y1, x2, y2] for (x1, y1), (x2, y2) in offset_points], "labels": [*content]}
 
     return labels
 
@@ -26,7 +24,7 @@ def generate_python_captcha(labels: dict, number_of_chars: int = 0, boxes: bool 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Generate catpchas')
-    parser.add_argument('amount', metavar='N', type=int, nargs='?', help='Amount of to be generated captchas', default=5)
+    parser.add_argument('amount', metavar='N', type=int, nargs='?', help='Amount of to be generated captchas', default=6)
     args = parser.parse_args()
 
     labels = {}
