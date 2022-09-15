@@ -1,3 +1,4 @@
+from typing import List
 from PIL import ImageFont
 from PIL.ImageDraw import Draw
 
@@ -22,6 +23,11 @@ def show_dataset(image, target):
     image.show()
 
 def decode_label(label: int):
+    if isinstance(label, list):
+        return [_decode_label(element) for element in label]
+    return _decode_label(label)
+
+def _decode_label(label: int):
     if 0 <= label < 36:
         if label < 10:
             return label
@@ -29,6 +35,11 @@ def decode_label(label: int):
     raise "Label has to be between 0 and 35 (each incl)"
 
 def encode_label(label: str):
+    if isinstance(label, list):
+        return [_encode_label(element) for element in label]
+    return _encode_label(label)
+
+def _encode_label(label: str):
     if 48 <= ord(label) <= 57 or 65 <= ord(label) <= 90:
         if ord(label) < 60:
             return ord(label)-48

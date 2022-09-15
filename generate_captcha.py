@@ -13,7 +13,7 @@ def generate_python_captcha(labels: dict, number_of_chars: int = 0, boxes: bool 
 
     offset_points = image.write(
         content,
-        f"captchas/{content}.png", boxes=boxes
+        f"generated_captchas/{content}.png", boxes=boxes
     )
 
     labels[content] = {"boxes": [[x1, y1, x2, y2] for (x1, y1), (x2, y2) in offset_points], "labels": [*content]}
@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     labels = {}
     for i in range(args.amount):
-        labels = generate_python_captcha(labels, boxes=True)
+        labels = generate_python_captcha(labels, boxes=False)
 
     with open("labels.json", mode="w+") as _file:
         json.dump(labels, _file, indent=4)

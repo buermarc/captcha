@@ -1,6 +1,6 @@
 from pathlib import Path
 from os.path import basename
-import json
+import json, utils
 from torch.utils.data import Dataset
 import torch
 from typing import Tuple, Union, Dict, List, Any
@@ -21,7 +21,13 @@ class CaptachDataset(Dataset):
         self.image_path = image_path
         self.label_file = label_file
         with open(self.label_file, mode="r") as _file:
-            self.labels_json = json.load(_file)
+            labels_json = json.load(_file)
+            self.labels_json = {
+                content: {
+                    "boxes": torch.Tensor(labels_json[content]["boxes"]).to(torch.int64),
+                    "labels": torch.Tensor(utils.encode_label(labels_json[content]["labels"])).to(torch.int64)
+                } for content in labels_json.keys()
+            }
 
         self.use_cache = use_cache
         self.transform = transform
@@ -44,9 +50,10 @@ class CaptachDataset(Dataset):
         self,
         index: int,
     ) -> Tuple[torch.Tensor, List[Dict[str, Union[str, int]]]]:
-        image = read_image(self.images[index])
+        image = read_image(self.images[index]).to(torch.double) / 255
         content = basename(self.images[index]).replace(f".{self.file_ending}", "")
         labels = self.labels_json[content]
+        
         return image, labels
 
     def __getitem__(
