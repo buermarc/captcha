@@ -39,7 +39,16 @@ if __name__ == "__main__":
         help="Amount of to be generated captchas",
         default=6,
     )
+    parser.add_argument(
+        "--val",
+        action="store_true",
+        help="Generate validation data",
+        default=False,
+    )
     args = parser.parse_args()
+
+    if args.val:
+        OUTDIR = "val_" + OUTDIR
 
     if not os.path.exists(OUTDIR):
         os.mkdir(OUTDIR)
@@ -48,5 +57,5 @@ if __name__ == "__main__":
     for i in range(args.amount):
         labels = generate_python_captcha(labels, boxes=False)
 
-    with open("labels.json", mode="w+") as _file:
-        json.dump(labels, _file, indent=4)
+    with open(f"{'val_' if args.val else ''}labels.json", mode="w+") as _file:
+        json.dump(labels, _file, indent=2)

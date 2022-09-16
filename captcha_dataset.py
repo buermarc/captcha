@@ -49,7 +49,7 @@ class CaptachDataset(Dataset):
     def _load_index(
         self,
         index: int,
-    ) -> Tuple[torch.Tensor, List[Dict[str, Union[str, int]]]]:
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         image = read_image(self.images[index]).to(torch.double) / 255
         content = basename(self.images[index]).replace(f".{self.file_ending}", "")
         labels = self.labels_json[content]
@@ -59,7 +59,7 @@ class CaptachDataset(Dataset):
     def __getitem__(
         self,
         index: int
-    ) -> Tuple[torch.Tensor, List[Dict[str, Union[str, int]]]]:
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
         if self.use_cache:
             image, labels = self.cached_data[index]

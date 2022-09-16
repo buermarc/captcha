@@ -1,8 +1,7 @@
 import pytorch_lightning as pl
 from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn
 import torch
-import torchmetrics
-
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 class CustomRcnnLightningModel(pl.LightningModule):
 
@@ -10,7 +9,7 @@ class CustomRcnnLightningModel(pl.LightningModule):
         super().__init__()
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
 
-        self.val_map = torchmetrics.Accuracy()
+        self.val_map = MeanAveragePrecision()
 
     def forward(self, image):
         self.model.eval()
