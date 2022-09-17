@@ -9,9 +9,12 @@ from custom_rcnn_lightning_model import CustomRcnnLightningModel
 from pytorch_lightning.loggers import TensorBoardLogger
 
 PREFERRED_DATATYPE = torch.double
+BATCH_SIZE = 2
+
 
 def collate_fn(batch):
     return tuple(zip(*batch))
+
 
 if __name__ == '__main__':
     core_count = os.cpu_count()
@@ -29,20 +32,18 @@ if __name__ == '__main__':
 
     train_dataloader = DataLoader(
         train_data,
-        batch_size=1,
+        batch_size=BATCH_SIZE,
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=10
-        #num_workers=int(core_count / 2) if core_count else 4,
+        num_workers=core_count if core_count else 4
     )
 
     val_dataloader = DataLoader(
         val_data,
-        batch_size=1,
+        batch_size=BATCH_SIZE,
         shuffle=False,
         collate_fn=collate_fn,
-        num_workers=10
-        #num_workers=int(core_count / 2) if core_count else 4,
+        num_workers=core_count if core_count else 4
     )
 
     model = CustomRcnnLightningModel()
@@ -50,9 +51,10 @@ if __name__ == '__main__':
     logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
 
     early_stopping = EarlyStopping(
-        monitor="val_loss",
+        monitor="val_loss_mean",
         min_delta=0.001,
-        patience=2,
+        patience=5,
+        verbose=True,
     )
 
     trainer = pl.Trainer(
