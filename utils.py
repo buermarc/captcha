@@ -10,16 +10,17 @@ def print_dataset(dataset):
         print(f"Label: {label}, Box: {box}, Score: {score}\n")
 
 
-def show_dataset(image, target):
+def show_dataset(image, target, threshold=0):
     boxes = target.get('boxes').detach().numpy()
     labels = target.get('labels').detach().numpy()
     scores = target.get('scores').detach().numpy()
     draw = Draw(image)
     for score, label, box in zip(scores, labels, boxes):
-        draw.rectangle(box, outline="red")
-        text = f"{label} {(score*100):.1f}%"
-        font = ImageFont.truetype("pythoncaptcha/DroidSansMono.ttf", 30)
-        draw.text(box[0:2], text, font=font, fill='red')
+        if score > threshold:
+            draw.rectangle(box, outline="red")
+            text = f"{decode_label(label)} {(score*100):.0f}%"
+            font = ImageFont.truetype("pythoncaptcha/DroidSansMono.ttf", 10)
+            draw.text(box[0:2], text, font=font, fill='red')
     image.show()
 
 def decode_label(label: int):
