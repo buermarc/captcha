@@ -3,6 +3,7 @@ from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn, Fa
 import torch
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
+
 class CustomRcnnLightningModel(pl.LightningModule):
 
     def __init__(self):
@@ -26,7 +27,6 @@ class CustomRcnnLightningModel(pl.LightningModule):
         batch_size = len(batch[0])
         self.log_dict(loss_dict, batch_size=batch_size)
         self.log("train_loss", losses, batch_size=batch_size)
-        print(losses)
         return losses
 
     def validation_step(self, batch, batch_idx):
@@ -39,13 +39,11 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
         batch_size = len(batch[0])
         self.log("val_loss", val_map, batch_size=batch_size)
-        print(val_map)
 
         return val_map
 
     def validation_epoch_end(self, validation_step_outputs):
         self.log("val_loss_mean", torch.mean(torch.Tensor(validation_step_outputs)))
-        print(torch.mean(torch.Tensor(validation_step_outputs)))
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
