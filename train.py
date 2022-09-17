@@ -6,6 +6,7 @@ from captcha_dataset import CaptachDataset
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
 def collate_fn(batch):
@@ -24,7 +25,7 @@ val_data = CaptachDataset(
 
 train_dataloader = DataLoader(
     train_data,
-    batch_size=2,
+    batch_size=1,
     shuffle=True,
     collate_fn=collate_fn,
     num_workers=int(core_count / 2) if core_count else 4,
@@ -32,13 +33,15 @@ train_dataloader = DataLoader(
 
 val_dataloader = DataLoader(
     val_data,
-    batch_size=2,
+    batch_size=1,
     shuffle=False,
     collate_fn=collate_fn,
     num_workers=int(core_count / 2) if core_count else 4,
 )
 
 model = CustomRcnnLightningModel()
+
+logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
 
 early_stopping = EarlyStopping(
     monitor="val_map",
@@ -51,6 +54,7 @@ trainer = pl.Trainer(
     devices=1,
     callbacks=[early_stopping],
     max_epochs=100,
+    logger=logger,
 )
 
 trainer.fit(model.double(), train_dataloader, val_dataloader)

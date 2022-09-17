@@ -7,7 +7,7 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
     def __init__(self):
         super().__init__()
-        self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+        self.model = fasterrcnn_resnet50_fpn(pretrained=False)
 
         self.val_map = MeanAveragePrecision()
 
@@ -33,7 +33,10 @@ class CustomRcnnLightningModel(pl.LightningModule):
         output = self.model(image)
 
         val_map = self.val_map(output, target)
-        self.log("val_map", val_map["map"])
+
+        batch_size = len(batch[0])
+        self.log("val_loss", val_map["map"], batch_size=batch_size)
+        return val_map["map"]
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
