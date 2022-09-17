@@ -1,13 +1,13 @@
-from typing import List
 from PIL import ImageFont
 from PIL.ImageDraw import Draw
+
 
 def print_dataset(dataset):
     boxes = dataset.get('boxes').detach().numpy()
     labels = dataset.get('labels').detach().numpy()
     scores = dataset.get('scores').detach().numpy()
     for label, box, score in zip(labels, boxes, scores):
-        print(f"Label: {label}, Box: {box}, Score: {score}\n")
+        print(f"Label: {decode_label(label)}, Box: {box}, Score: {score}\n")
 
 
 def show_dataset(image, target, threshold: float = 0.0):
