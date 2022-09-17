@@ -1,5 +1,5 @@
 clean:
-	-rm generated_captchas/*
-	-rm val_generated_captchas/*
-	-rm labels.json
-	-rm val_labels.json
+	-rm data/train/*
+	-rm data/val/*
+	-rm data/train_labels.json
+	-rm data/val_labels.json
