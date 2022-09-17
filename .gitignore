@@ -1,7 +1,7 @@
 # Our Project
-.data/
-.lightning_logs/
-.tb_logs/
+data/
+lightning_logs/
+tb_logs/
 
 # Editors
 .vscode/
