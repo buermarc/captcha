@@ -10,7 +10,7 @@ def print_dataset(dataset):
         print(f"Label: {label}, Box: {box}, Score: {score}\n")
 
 
-def show_dataset(image, target, threshold=0):
+def show_dataset(image, target, threshold: float = 0.0):
     boxes = target.get('boxes').detach().numpy()
     labels = target.get('labels').detach().numpy()
     scores = target.get('scores').detach().numpy()
