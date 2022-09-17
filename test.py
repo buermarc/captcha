@@ -6,12 +6,12 @@ from custom_rcnn_lightning_model import CustomRcnnLightningModel
 
 
 version = 2
-checkpoint_file = os.lsitdir("tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/")[0]
+checkpoint_file = os.listdir(f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/")[0]
 
-model = CustomRcnnLightningModel.load_from_checkpoint(checkpoint_file)
+model = CustomRcnnLightningModel.load_from_checkpoint(f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/{checkpoint_file}")
 
-testimage_file = os.listdir("data/test/")[0]
-testimage = Image.open(testimage_file)
+testimage_file = os.listdir(f"./data/test/")[0]
+testimage = Image.open(f"./data/test/{testimage_file}")
 testtensor = [torchvision.transforms.ToTensor()(testimage)]
 
 output = model.forward(testtensor)
