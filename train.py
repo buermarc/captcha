@@ -44,7 +44,7 @@ model = CustomRcnnLightningModel()
 logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
 
 early_stopping = EarlyStopping(
-    monitor="val_map",
+    monitor="val_loss",
     min_delta=0.001,
     patience=5,
 )
