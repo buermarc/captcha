@@ -65,6 +65,6 @@ if __name__ == '__main__':
         callbacks=[early_stopping],
         max_epochs=100,
         logger=logger,
-        log_every_n_steps=1,
+        log_every_n_steps=50,
     )
     trainer.fit(model.to(PREFERRED_DATATYPE), train_dataloader, val_dataloader)
