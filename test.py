@@ -1,4 +1,5 @@
-import torchvision, torch, utils
+import torchvision
+import utils
 from PIL import Image
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 
