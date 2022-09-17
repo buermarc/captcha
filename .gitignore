@@ -1,3 +1,8 @@
+# Our Project
+.data/
+.lightning_logs/
+.tb_logs/
+
 # Editors
 .vscode/
 .idea/
