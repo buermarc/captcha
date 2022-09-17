@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn
+from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn, FastRCNNPredictor
 import torch
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
@@ -7,9 +7,10 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
     def __init__(self):
         super().__init__()
-        self.model = fasterrcnn_resnet50_fpn(pretrained=False)
 
-        self.val_map = MeanAveragePrecision()
+        self.model = fasterrcnn_resnet50_fpn(pretrained=False)
+        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=36)
 
     def forward(self, image):
         self.model.eval()
@@ -25,18 +26,26 @@ class CustomRcnnLightningModel(pl.LightningModule):
         batch_size = len(batch[0])
         self.log_dict(loss_dict, batch_size=batch_size)
         self.log("train_loss", losses, batch_size=batch_size)
-
+        print(losses)
         return losses
 
     def validation_step(self, batch, batch_idx):
         image, target = batch
         output = self.model(image)
 
-        val_map = self.val_map(output, target)
+        metric = MeanAveragePrecision()
+        metric.update(output, target)
+        val_map = metric.compute()["map"]
 
         batch_size = len(batch[0])
-        self.log("val_loss", val_map["map"], batch_size=batch_size)
-        return val_map["map"]
+        self.log("val_loss", val_map, batch_size=batch_size)
+        print(val_map)
+
+        return val_map
+
+    def validation_epoch_end(self, validation_step_outputs):
+        self.log("val_loss_mean", torch.mean(torch.Tensor(validation_step_outputs)))
+        print(torch.mean(torch.Tensor(validation_step_outputs)))
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]

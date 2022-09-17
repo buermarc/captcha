@@ -16,7 +16,8 @@ class CaptachDataset(Dataset):
         label_file: Path,
         use_cache: bool = False,
         transform: Any = None,
-        file_ending: str = "png"
+        file_ending: str = "png",
+        preferred_datatyp = torch.double,
     ):
         self.image_path = image_path
         self.label_file = label_file
@@ -32,6 +33,7 @@ class CaptachDataset(Dataset):
         self.use_cache = use_cache
         self.transform = transform
         self.file_ending = file_ending
+        self.preferred_datatype = preferred_datatyp
 
         self.images = glob.glob(f"{image_path}/*.{self.file_ending}")
 
@@ -50,7 +52,7 @@ class CaptachDataset(Dataset):
         self,
         index: int,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        image = read_image(self.images[index]).to(torch.double) / 255
+        image = read_image(self.images[index]).to(self.preferred_datatype) / 255
         content = basename(self.images[index]).replace(f".{self.file_ending}", "")
         labels = self.labels_json[content]
         

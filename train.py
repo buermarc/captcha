@@ -8,53 +8,59 @@ from pytorch_lightning.callbacks import EarlyStopping
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 from pytorch_lightning.loggers import TensorBoardLogger
 
+PREFERRED_DATATYPE = torch.double
 
 def collate_fn(batch):
     return tuple(zip(*batch))
 
+if __name__ == '__main__':
+    core_count = os.cpu_count()
 
-core_count = os.cpu_count()
+    train_data = CaptachDataset(
+        image_path=Path("generated_captchas"),
+        label_file=Path("labels.json"),
+        preferred_datatyp=PREFERRED_DATATYPE
+    )
+    val_data = CaptachDataset(
+        image_path=Path("val_generated_captchas"),
+        label_file=Path("val_labels.json"),
+        preferred_datatyp=PREFERRED_DATATYPE
+    )
 
-train_data = CaptachDataset(
-    image_path=Path("generated_captchas"), label_file=Path("labels.json")
-)
-val_data = CaptachDataset(
-    image_path=Path("val_generated_captchas"),
-    label_file=Path("val_labels.json")
-)
+    train_dataloader = DataLoader(
+        train_data,
+        batch_size=1,
+        shuffle=True,
+        collate_fn=collate_fn,
+        num_workers=10
+        #num_workers=int(core_count / 2) if core_count else 4,
+    )
 
-train_dataloader = DataLoader(
-    train_data,
-    batch_size=1,
-    shuffle=True,
-    collate_fn=collate_fn,
-    num_workers=int(core_count / 2) if core_count else 4,
-)
+    val_dataloader = DataLoader(
+        val_data,
+        batch_size=1,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=10
+        #num_workers=int(core_count / 2) if core_count else 4,
+    )
 
-val_dataloader = DataLoader(
-    val_data,
-    batch_size=1,
-    shuffle=False,
-    collate_fn=collate_fn,
-    num_workers=int(core_count / 2) if core_count else 4,
-)
+    model = CustomRcnnLightningModel()
 
-model = CustomRcnnLightningModel()
+    logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
 
-logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
+    early_stopping = EarlyStopping(
+        monitor="val_loss",
+        min_delta=0.001,
+        patience=2,
+    )
 
-early_stopping = EarlyStopping(
-    monitor="val_loss",
-    min_delta=0.001,
-    patience=5,
-)
-
-trainer = pl.Trainer(
-    accelerator="gpu" if torch.cuda.is_available() else "cpu",
-    devices=1,
-    callbacks=[early_stopping],
-    max_epochs=100,
-    logger=logger,
-)
-
-trainer.fit(model.double(), train_dataloader, val_dataloader)
+    trainer = pl.Trainer(
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        devices=1,
+        callbacks=[early_stopping],
+        max_epochs=100,
+        logger=logger,
+        log_every_n_steps=1,
+    )
+    trainer.fit(model.to(PREFERRED_DATATYPE), train_dataloader, val_dataloader)
