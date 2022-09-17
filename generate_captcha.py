@@ -5,16 +5,16 @@ import json
 import os
 
 image = ImageCaptcha()
-OUTDIR = "generated_captchas"
+BASEDIR = "data/"
 
 
 def generate_python_captcha(
     labels: dict, number_of_chars: int = 0, boxes: bool = False
 ):
     if number_of_chars == 0:
-        number_of_chars = random.randrange(2) + 4
+        number_of_chars = random.randrange(3) + 4
     content = "".join(
-        random.choice(string.ascii_uppercase + string.digits)
+        random.choice(string.ascii_letters + string.digits)
         for _ in range(number_of_chars)
     )  # take uppercase only to reduce similar chars like w and W
 
@@ -47,8 +47,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.val:
-        OUTDIR = "val_" + OUTDIR
+    OUTDIR = BASEDIR + "val" if args.val else BASEDIR + "train"
 
     if not os.path.exists(OUTDIR):
         os.mkdir(OUTDIR)
@@ -57,5 +56,5 @@ if __name__ == "__main__":
     for i in range(args.amount):
         labels = generate_python_captcha(labels, boxes=False)
 
-    with open(f"{'val_' if args.val else ''}labels.json", mode="w+") as _file:
+    with open(BASEDIR + f"{'val_' if args.val else 'train_'}labels.json", mode="w+") as _file:
         json.dump(labels, _file, indent=2)

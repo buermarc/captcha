@@ -10,7 +10,7 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
-        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=36)
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=62)
 
     def forward(self, image):
         self.model.eval()

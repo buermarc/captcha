@@ -19,7 +19,7 @@ def show_dataset(image, target, threshold: float = 0.0):
         if score > threshold:
             draw.rectangle(box, outline="red")
             text = f"{decode_label(label)} {(score*100):.0f}%"
-            font = ImageFont.truetype("pythoncaptcha/FibelVienna.ttf", 10)
+            font = ImageFont.truetype("pythoncaptcha/DroidSansMono-V2.ttf", 10)
             draw.text(box[0:2], text, font=font, fill='red')
     image.show()
 
@@ -29,11 +29,13 @@ def decode_label(label: int):
     return _decode_label(label)
 
 def _decode_label(label: int):
-    if 0 <= label < 36:
+    if 0 <= label < 62:
         if label < 10:
             return label
-        return chr(label+55)
-    raise "Label has to be between 0 and 35 (each incl)"
+        if label < 36:
+            return chr(label+55)
+        return chr(label+61)
+    raise "Label has to be between 0 and 61 (each incl)"
 
 def encode_label(label: str):
     if isinstance(label, list):
@@ -41,8 +43,10 @@ def encode_label(label: str):
     return _encode_label(label)
 
 def _encode_label(label: str):
-    if 48 <= ord(label) <= 57 or 65 <= ord(label) <= 90:
+    if 48 <= ord(label) <= 57 or 65 <= ord(label) <= 90 or 97 <= ord(label) <= 122:
         if ord(label) < 60:
             return ord(label)-48
-        return ord(label)-55
+        if ord(label) < 95:
+            return ord(label)-55
+        return ord(label)-61
     raise "Label has to be alphanumeric"

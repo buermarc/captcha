@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 PREFERRED_DATATYPE = torch.double
 BATCH_SIZE = 2
+DATADIR = "data/"
 
 
 def collate_fn(batch):
@@ -20,13 +21,13 @@ if __name__ == '__main__':
     core_count = os.cpu_count()
 
     train_data = CaptachDataset(
-        image_path=Path("generated_captchas"),
-        label_file=Path("labels.json"),
+        image_path=Path(DATADIR + "train"),
+        label_file=Path(DATADIR + "train_labels.json"),
         preferred_datatyp=PREFERRED_DATATYPE
     )
     val_data = CaptachDataset(
-        image_path=Path("val_generated_captchas"),
-        label_file=Path("val_labels.json"),
+        image_path=Path(DATADIR + "val"),
+        label_file=Path(DATADIR + "val_labels.json"),
         preferred_datatyp=PREFERRED_DATATYPE
     )
 
