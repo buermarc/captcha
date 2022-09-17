@@ -54,6 +54,7 @@ if __name__ == '__main__':
         monitor="val_loss_mean",
         min_delta=0.001,
         patience=5,
+        mode="max",
         verbose=True,
     )
 
