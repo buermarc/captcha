@@ -1,4 +1,5 @@
 # Our Project
+artifacts/
 data/
 lightning_logs/
 tb_logs/
