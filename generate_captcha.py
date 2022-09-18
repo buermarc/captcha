@@ -1,4 +1,5 @@
 from pythoncaptcha.image import ImageCaptcha
+import shutil
 import argparse
 import random, string
 import json
@@ -10,7 +11,7 @@ BASEDIR = "data/"
 
 
 def generate_python_captcha(
-    labels: dict, number_of_chars: int = 0, boxes: bool = False
+    labels: dict, outdir, number_of_chars: int = 0, boxes: bool = False
 ):
     if number_of_chars == 0:
         number_of_chars = random.randrange(3) + 4
@@ -19,7 +20,7 @@ def generate_python_captcha(
         for _ in range(number_of_chars)
     )  # take uppercase only to reduce similar chars like w and W
 
-    offset_points = image.write(content, f"{OUTDIR}/{content}.png", boxes=boxes)
+    offset_points = image.write(content, f"{outdir}/{content}.png", boxes=boxes)
 
     labels[content] = {
         "boxes": [[x1, y1, x2, y2] for (x1, y1), (x2, y2) in offset_points],
@@ -52,28 +53,72 @@ if __name__ == "__main__":
         help="Generate test data",
         default=False,
     )
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Generate train data",
+        default=False,
+    )
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="Delete existing data",
+        default=False,
+    )
     args = parser.parse_args()
 
     if args.val and args.test:
         print("Either val or test not both!")
         sys.exit(1)
 
-    if args.val:
-        OUTDIR = BASEDIR + "val"
-        label_file = BASEDIR + "val_labels.json"
+    datasets = []
+
+    if args.train:
+        datasets.append(
+            (BASEDIR + "train", BASEDIR + "train_labels.json", args.amount)
+        )
+    elif args.val:
+        datasets.append(
+            (BASEDIR + "val", BASEDIR + "val_labels.json", args.amount)
+        )
     elif args.test:
-        OUTDIR = BASEDIR + "test"
-        label_file = BASEDIR + "test_labels.json"
+        datasets.append(
+            (BASEDIR + "test", BASEDIR + "test_labels.json", args.amount)
+        )
+
     else:
-        OUTDIR = BASEDIR + "train"
-        label_file = BASEDIR + "train_labels.json"
+        # Generate everything
+        train_amount = int(args.amount)
+        val_amount = int(args.amount * 0.2)
+        tes_amount = int(args.amount * 0.2)
+        datasets.extend(
+            [
+                (BASEDIR + "train", BASEDIR + "train_labels.json", val_amount),
+                (BASEDIR + "val", BASEDIR + "val_labels.json", val_amount),
+                (BASEDIR + "test", BASEDIR + "test_labels.json", val_amount)
+            ]
+        )
 
-    if not os.path.exists(OUTDIR):
-        os.mkdir(OUTDIR)
+    for dataset in datasets:
+        outdir, label_file, amount = dataset
 
-    labels = {}
-    for i in range(args.amount):
-        labels = generate_python_captcha(labels, boxes=False)
+        if os.path.exists(outdir) and not args.delete:
+            print("Data already exists, --delete to override with new data.")
+            sys.exit(1)
 
-    with open(label_file, mode="w+") as _file:
-        json.dump(labels, _file, indent=2)
+        if os.path.exists(outdir) and args.delete:
+            shutil.rmtree(outdir)
+
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+
+        labels = {}
+        for i in range(amount):
+            labels = generate_python_captcha(labels, outdir, boxes=False)
+
+        if os.path.exists(label_file) and not args.delete:
+            print("Label file already exists, --delete to override.")
+            sys.exit(1)
+
+        with open(label_file, mode="w+") as _file:
+            json.dump(labels, _file, indent=2)
