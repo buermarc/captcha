@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 from pytorch_lightning.loggers import TensorBoardLogger
+from torchinfo import summary
 
 PREFERRED_DATATYPE = torch.double
 BATCH_SIZE = 2
@@ -48,6 +49,7 @@ if __name__ == '__main__':
     )
 
     model = CustomRcnnLightningModel(num_classes=62)
+    summary(model, device='cpu', input_size=(BATCH_SIZE, 3, 60, 160))
 
     logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
     logger.log_hyperparams({

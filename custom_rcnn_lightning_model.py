@@ -6,13 +6,13 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 class CustomRcnnLightningModel(pl.LightningModule):
 
-    def __init__(self, num_classes: int = 62):
+    def __init__(self, num_classes: int = 62, pretrained: bool = False):
         super().__init__()
 
-        self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+        self.model = fasterrcnn_resnet50_fpn(pretrained=pretrained, num_classes=num_classes)
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
-        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=num_classes)
 
+        self._pretrained = pretrained
         self._in_features = in_features
         self._num_classes = num_classes
 
@@ -58,8 +58,10 @@ class CustomRcnnLightningModel(pl.LightningModule):
         assert self.logger
         self.logger.log_hyperparams(SGD_kwargs)
         self.logger.log_hyperparams(StepLR_kwargs)
-        self.logger.log_hyperparams(
-            {"in_features": self._in_features, "num_classes": self._num_classes}
-        )
+        self.logger.log_hyperparams({
+            "in_features": self._in_features,
+            "num_classes": self._num_classes,
+            "pretrained": self._pretrained
+        })
 
         return [optimizer], [lr_scheduler]
