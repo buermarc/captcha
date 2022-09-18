@@ -47,9 +47,14 @@ if __name__ == '__main__':
         num_workers=core_count if core_count else 4
     )
 
-    model = CustomRcnnLightningModel()
+    model = CustomRcnnLightningModel(num_classes=62)
 
     logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")
+    logger.log_hyperparams({
+        "batch_size": BATCH_SIZE,
+        "train_data_size": len(train_data),
+        "val_data_size": len(val_data),
+    })
 
     early_stopping = EarlyStopping(
         monitor="val_loss_mean",

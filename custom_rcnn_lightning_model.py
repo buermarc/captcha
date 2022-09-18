@@ -6,12 +6,15 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 class CustomRcnnLightningModel(pl.LightningModule):
 
-    def __init__(self):
+    def __init__(self, num_classes: int = 62):
         super().__init__()
 
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
-        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=62)
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=num_classes)
+
+        self._in_features = in_features
+        self._num_classes = num_classes
 
     def forward(self, image):
         self.model.eval()
@@ -46,8 +49,17 @@ class CustomRcnnLightningModel(pl.LightningModule):
         self.log("val_loss_mean", torch.mean(torch.Tensor(validation_step_outputs)))
 
     def configure_optimizers(self):
+        SGD_kwargs = {"lr": 0.005, "momentum": 0.9, "weight_decay": 0.005}
+        StepLR_kwargs = {"step_size": 3, "gamma": 0.7}
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.7)
+        optimizer = torch.optim.SGD(params, **SGD_kwargs)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
+
+        assert self.logger
+        self.logger.log_hyperparams(SGD_kwargs)
+        self.logger.log_hyperparams(StepLR_kwargs)
+        self.logger.log_hyperparams(
+            {"in_features": self._in_features, "num_classes": self._num_classes}
+        )
 
         return [optimizer], [lr_scheduler]
