@@ -20,4 +20,4 @@ for idx, image in enumerate(images):
 
 outputs = model.forward(image_tensors)
 
-print(utils.own_testmetric([image.replace(".png", "") for image in images], outputs, threshold=0.2))
+print(utils.own_testmetric([image.replace(".png", "") for image in images], outputs, threshold=0.9))

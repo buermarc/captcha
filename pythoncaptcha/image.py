@@ -19,7 +19,7 @@ except ImportError:
     wheezy_captcha = None
 
 DATA_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)))
-DEFAULT_FONTS = [os.path.join(DATA_DIR, 'DroidSansMono-V2.ttf')]
+DEFAULT_FONTS = [os.path.join(DATA_DIR, 'DroidSansMono-V4.ttf')]
 
 if wheezy_captcha:
     __all__ = ['ImageCaptcha', 'WheezyCaptcha']

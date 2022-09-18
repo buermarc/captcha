@@ -21,7 +21,7 @@ def show_dataset(image, target, threshold: float = 0.0):
         if score > threshold:
             draw.rectangle(box, outline="red")
             text = f"{decode_label(label)} {(score*100):.0f}%"
-            font = ImageFont.truetype("pythoncaptcha/DroidSansMono-V2.ttf", 10)
+            font = ImageFont.truetype("pythoncaptcha/DroidSansMono-V4.ttf", 10)
             draw.text(box[0:2], text, font=font, fill='red')
     image.show()
 
