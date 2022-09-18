@@ -88,15 +88,14 @@ if __name__ == "__main__":
 
     else:
         # Generate everything
+        breakpoint()
         train_amount = int(args.amount)
         val_amount = int(args.amount * 0.2)
-        tes_amount = int(args.amount * 0.2)
+        test_amount = int(args.amount * 0.2)
         datasets.extend(
-            [
-                (BASEDIR + "train", BASEDIR + "train_labels.json", val_amount),
-                (BASEDIR + "val", BASEDIR + "val_labels.json", val_amount),
-                (BASEDIR + "test", BASEDIR + "test_labels.json", val_amount)
-            ]
+            [(BASEDIR + "train", BASEDIR + "train_labels.json", train_amount),
+             (BASEDIR + "val", BASEDIR + "val_labels.json", val_amount),
+             (BASEDIR + "test", BASEDIR + "test_labels.json", test_amount)]
         )
 
     for dataset in datasets:
