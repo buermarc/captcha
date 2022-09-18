@@ -88,7 +88,6 @@ if __name__ == "__main__":
 
     else:
         # Generate everything
-        breakpoint()
         train_amount = int(args.amount)
         val_amount = int(args.amount * 0.2)
         test_amount = int(args.amount * 0.2)
