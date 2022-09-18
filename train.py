@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torchinfo import summary
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 DATADIR = "data/"
 
 

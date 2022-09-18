@@ -1,7 +1,9 @@
 import json, torch
+from typing import Optional
 import numpy as np
 from PIL import ImageFont
 from PIL.ImageDraw import Draw
+from PIL.Image import Image
 
 
 def print_dataset(dataset):
@@ -12,7 +14,7 @@ def print_dataset(dataset):
         print(f"Label: {decode_label(label)}, Box: {box}, Score: {score}\n")
 
 
-def show_dataset(image, target, threshold: float = 0.0):
+def show_dataset(image, target, threshold: float = 0.0, ret: bool = False) -> Optional[Image]:
     boxes = target.get('boxes').detach().numpy()
     labels = target.get('labels').detach().numpy()
     scores = target.get('scores').detach().numpy()
@@ -23,6 +25,8 @@ def show_dataset(image, target, threshold: float = 0.0):
             text = f"{decode_label(label)} {(score*100):.0f}%"
             font = ImageFont.truetype("pythoncaptcha/DroidSansMono-V4.ttf", 10)
             draw.text(box[0:2], text, font=font, fill='red')
+    if ret:
+        return image
     image.show()
 
 def decode_label(label):
