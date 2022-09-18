@@ -56,7 +56,7 @@ def _encode_label(label: str):
     raise ValueError("Label has to be alphanumeric")
 
 
-def own_testmetric(correct_labels, datasets, threshold=0):
+def own_testmetric(correct_labels, datasets, threshold: float = 0.0):
     if len(correct_labels) is not len(datasets):
         raise ValueError("Number of correct labels and datasets are not equal")
 
