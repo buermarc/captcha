@@ -1,6 +1,7 @@
 import torchvision
 import utils
 import torchvision, os, utils
+import torch
 from PIL import Image
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 
@@ -10,13 +11,14 @@ checkpoint_file = os.listdir(f"./tb_logs/CustomRcnnLightningModel/version_{versi
 
 model = CustomRcnnLightningModel.load_from_checkpoint(f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/{checkpoint_file}")
 
-outputs = []
-for testimage_file in os.listdir("./data/test/"):
-    testimage = Image.open(f"./data/test/{testimage_file}")
-    testtensor = [torchvision.transforms.ToTensor()(testimage)]
+images = os.listdir("./data/test/")
 
-    output = model.forward(testtensor)
-    outputs.append[output]
-    #utils.show_dataset(testimage, output[0], threshold=0.1)
+image_tensors = torch.zeros((len(images), 3, 60, 160))
+breakpoint()
+for idx, image in enumerate(images):
+    testimage = Image.open(f"./data/test/{image}")
+    image_tensors[idx] = torchvision.transforms.ToTensor()(testimage)
 
-utils.own_testmetric(testimage_file.replace(".png", ""), outputs, threshold=0)
+outputs = model.forward(image_tensors)
+
+print(utils.own_testmetric([image.replace(".png", "") for image in images], outputs, threshold=0))

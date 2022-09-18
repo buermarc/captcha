@@ -39,7 +39,7 @@ def _decode_label(label):
         if label < 36:
             return chr(label+55)
         return chr(label+61)
-    raise "Label has to be between 0 and 61 (each incl)"
+    raise ValueError("Label has to be between 0 and 61 (each incl)")
 
 def encode_label(label: str):
     if isinstance(label, list):
@@ -53,12 +53,13 @@ def _encode_label(label: str):
         if ord(label) < 95:
             return ord(label)-55
         return ord(label)-61
-    raise "Label has to be alphanumeric"
+    raise ValueError("Label has to be alphanumeric")
 
 
 def own_testmetric(correct_labels, datasets, threshold=0):
+    breakpoint()
     if len(correct_labels) is not len(datasets):
-        raise "Number of correct labels and datasets are not equal"
+        raise ValueError("Number of correct labels and datasets are not equal")
 
     correct_detections = 0
     correct_letters_list = []
