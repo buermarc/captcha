@@ -3,6 +3,7 @@ import argparse
 import random, string
 import json
 import os
+import sys
 
 image = ImageCaptcha()
 BASEDIR = "data/"
@@ -45,9 +46,27 @@ if __name__ == "__main__":
         help="Generate validation data",
         default=False,
     )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Generate test data",
+        default=False,
+    )
     args = parser.parse_args()
 
-    OUTDIR = BASEDIR + "val" if args.val else BASEDIR + "train"
+    if args.val and args.test:
+        print("Either val or test not both!")
+        sys.exit(1)
+
+    if args.val:
+        OUTDIR = BASEDIR + "val"
+        label_file = BASEDIR + "val_labels.json"
+    elif args.test:
+        OUTDIR = BASEDIR + "test"
+        label_file = BASEDIR + "test_labels.json"
+    else:
+        OUTDIR = BASEDIR + "train"
+        label_file = BASEDIR + "train_labels.json"
 
     if not os.path.exists(OUTDIR):
         os.mkdir(OUTDIR)
@@ -56,5 +75,5 @@ if __name__ == "__main__":
     for i in range(args.amount):
         labels = generate_python_captcha(labels, boxes=False)
 
-    with open(BASEDIR + f"{'val_' if args.val else 'train_'}labels.json", mode="w+") as _file:
+    with open(label_file, mode="w+") as _file:
         json.dump(labels, _file, indent=2)
