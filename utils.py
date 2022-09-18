@@ -57,7 +57,6 @@ def _encode_label(label: str):
 
 
 def own_testmetric(correct_labels, datasets, threshold=0):
-    breakpoint()
     if len(correct_labels) is not len(datasets):
         raise ValueError("Number of correct labels and datasets are not equal")
 
@@ -103,7 +102,7 @@ def _check_letters_wrong_number(correct_label, labels_sorted):
 
 def _recursive_letter_check(x, y, idx, idy, delta):
     if idy+delta == len(y):
-        return 0, delta
+        return 0, delta-1
     else:
         if x[idx] == y[idy+delta]:
             return 1, delta

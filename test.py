@@ -14,7 +14,6 @@ model = CustomRcnnLightningModel.load_from_checkpoint(f"./tb_logs/CustomRcnnLigh
 images = os.listdir("./data/test/")
 
 image_tensors = torch.zeros((len(images), 3, 60, 160))
-breakpoint()
 for idx, image in enumerate(images):
     testimage = Image.open(f"./data/test/{image}")
     image_tensors[idx] = torchvision.transforms.ToTensor()(testimage)
