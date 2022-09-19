@@ -1,17 +1,17 @@
-from starlette.responses import JSONResponse
-import torchvision
+import os
 from io import BytesIO
-import utils
-import torchvision, os, utils
-from typing import Dict
-import torch
-from PIL import Image
-from custom_rcnn_lightning_model import CustomRcnnLightningModel
+from typing import Dict, Optional
 
+import torch
+import torchvision
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
+from PIL import Image
 
-pictures: Dict[str, Image.Image] = {}
+import utils
+from custom_rcnn_lightning_model import CustomRcnnLightningModel
+
+pictures: Dict[str, Optional[Image.Image]] = {}
 outputs = []
 
 
@@ -27,16 +27,20 @@ def index() -> HTMLResponse:
 def serve_image_file(file_name: str) -> StreamingResponse:
     image = BytesIO()
     img = pictures[file_name]
-    img.save(image, format='PNG', quality=85)
+    img.save(image, format="PNG", quality=85)
     image.seek(0)
     return StreamingResponse(image, media_type="image/png")
 
 
 def load() -> None:
     version = 21
-    checkpoint_file = os.listdir(f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/")[0]
+    checkpoint_file = os.listdir(
+        f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/"
+    )[0]
 
-    model = CustomRcnnLightningModel.load_from_checkpoint(f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/{checkpoint_file}")
+    model = CustomRcnnLightningModel.load_from_checkpoint(
+        f"./tb_logs/CustomRcnnLightningModel/version_{version}/checkpoints/{checkpoint_file}"
+    )
 
     images = {}
     image_files = os.listdir("./data/test/")
@@ -53,11 +57,19 @@ def load() -> None:
 
     for image_file, output in zip(image_files, outputs):
         image = images[image_file]
-        pictures[image_file] = utils.show_dataset(image, output, ret=True, threshold=threshold)
+        pictures[image_file] = utils.show_dataset(
+            image, output, ret=True, threshold=threshold
+        )
 
     for output in outputs:
         utils.print_dataset(output)
-    print(utils.own_testmetric([image.replace(".png", "") for image in images], outputs, threshold=threshold))
+    print(
+        utils.own_testmetric(
+            [image.replace(".png", "") for image in images],
+            outputs,
+            threshold=threshold,
+        )
+    )
 
 
 def create_app() -> FastAPI:
