@@ -48,7 +48,7 @@ if __name__ == '__main__':
         num_workers=core_count if core_count else 4
     )
 
-    model = CustomRcnnLightningModel(num_classes=62, pretrained=False)
+    model = CustomRcnnLightningModel(num_classes=62+1)
     summary(model, device='cpu', input_size=(BATCH_SIZE, 3, 60, 160))
 
     logger = TensorBoardLogger("tb_logs", name="CustomRcnnLightningModel")

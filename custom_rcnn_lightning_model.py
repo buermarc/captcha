@@ -1,15 +1,19 @@
 import pytorch_lightning as pl
-from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn, FastRCNNPredictor
+from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
 import torch
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from torchvision.models.resnet import ResNet50_Weights
 
 
 class CustomRcnnLightningModel(pl.LightningModule):
 
-    def __init__(self, num_classes: int = 62, pretrained: bool = False):
+    def __init__(self, num_classes: int = 62+1, pretrained: bool = False):
         super().__init__()
 
-        self.model = fasterrcnn_resnet50_fpn(pretrained=pretrained, num_classes=num_classes)
+        self.model = fasterrcnn_resnet50_fpn_v2(
+            weights_backbone=ResNet50_Weights.DEFAULT,
+            num_classes=num_classes
+        )
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
 
         self._pretrained = pretrained
