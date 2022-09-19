@@ -37,13 +37,15 @@ def decode_label(label):
 def _decode_label(label):
     if not isinstance(label, int):
         label = int(label)
-    if 0 <= label < 62:
-        if label < 10:
+    if 1 <= label < 63:
+        if label == 10:
+            return 0
+        if label < 11:
             return label
-        if label < 36:
-            return chr(label+55)
-        return chr(label+61)
-    raise ValueError("Label has to be between 0 and 61 (each incl)")
+        if label < 37:
+            return chr(label+54)
+        return chr(label+60)
+    raise ValueError("Label has to be between 1 and 62 (each incl)")
 
 def encode_label(label: str):
     if isinstance(label, list):
@@ -52,11 +54,13 @@ def encode_label(label: str):
 
 def _encode_label(label: str):
     if 48 <= ord(label) <= 57 or 65 <= ord(label) <= 90 or 97 <= ord(label) <= 122:
+        if ord(label) == 48:
+            return 10
         if ord(label) < 60:
             return ord(label)-48
         if ord(label) < 95:
-            return ord(label)-55
-        return ord(label)-61
+            return ord(label)-54
+        return ord(label)-60
     raise ValueError("Label has to be alphanumeric")
 
 
