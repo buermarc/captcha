@@ -8,9 +8,10 @@ from pytorch_lightning.callbacks import EarlyStopping
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchinfo import summary
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 1
+BATCH_SIZE = 24
 DATADIR = "data/"
 
 
@@ -24,12 +25,12 @@ if __name__ == '__main__':
     train_data = CaptachDataset(
         image_path=Path(DATADIR + "train"),
         label_file=Path(DATADIR + "train_labels.json"),
-        preferred_datatyp=PREFERRED_DATATYPE
+        preferred_datatyp=PREFERRED_DATATYPE,
     )
     val_data = CaptachDataset(
         image_path=Path(DATADIR + "val"),
         label_file=Path(DATADIR + "val_labels.json"),
-        preferred_datatyp=PREFERRED_DATATYPE
+        preferred_datatyp=PREFERRED_DATATYPE,
     )
 
     train_dataloader = DataLoader(
@@ -66,10 +67,12 @@ if __name__ == '__main__':
         verbose=True,
     )
 
+    lr_monitor = LearningRateMonitor(logging_interval='epoch')
+
     trainer = pl.Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
-        callbacks=[early_stopping],
+        callbacks=[early_stopping, lr_monitor],
         max_epochs=100,
         logger=logger,
         log_every_n_steps=50,
