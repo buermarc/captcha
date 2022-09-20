@@ -43,7 +43,7 @@ class CaptachDataset(Dataset):
             # Use multiprocessing to load images and targets into RAM
             from multiprocessing import Pool
             with Pool() as pool:
-                self.cached_data = pool.starmap(self._load_index, next(iter(range(len(self.images)))))
+                self.cached_data = pool.starmap(self._load_index, iter(self.images))
 
     def __len__(self) -> int:
         return len(self.images)
