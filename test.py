@@ -17,8 +17,8 @@ from custom_rcnn_lightning_model import CustomRcnnLightningModel
 pictures: Dict[str, Optional[Image.Image]] = {}
 outputs = []
 
-VERSION = 43
-THRESHOLD = 0.5
+VERSION = 51
+THRESHOLD = 0.8
 
 
 def index() -> HTMLResponse:
