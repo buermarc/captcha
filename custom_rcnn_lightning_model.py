@@ -82,7 +82,7 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
     def configure_optimizers(self):
         SGD_kwargs = {"lr": 0.004, "momentum": 0.5, "weight_decay": 0.01}
-        StepLR_kwargs = {"step_size": 8, "gamma": 0.7}
+        StepLR_kwargs = {"step_size": 5, "gamma": 0.7}
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, **SGD_kwargs)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
