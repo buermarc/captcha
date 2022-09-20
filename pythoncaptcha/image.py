@@ -56,6 +56,20 @@ class _Captcha(object):
         im.save(output, format=format)
         return offset_points
 
+    def write_letter(self, letter, output, format='png') -> None:
+        """Generate and write an image CAPTCHA data to the output.
+
+        :param chars: text to be generated.
+        :param output: output destination.
+        :param format: image file format
+        """
+        color = (1, 1, 1)
+        background = (255, 255, 255)
+        self._width = 30
+        self._height = 60
+        im = self.create_captcha_letter(letter, color, background)
+        im.save(output, format=format)
+
 
 class WheezyCaptcha(_Captcha):
     """Create an image CAPTCHA with wheezy.captcha."""
@@ -146,6 +160,59 @@ class ImageCaptcha(_Captcha):
             number -= 1
         return image
 
+    def create_captcha_letter(self, letter, color, background):
+        """Create a single CAPTCHA letter.
+
+        :param chars: text to be generated.
+        :param color: color of the text.
+        :param background: color of the background.
+
+        The color should be a tuple of 3 numbers, such as (0, 255, 255).
+
+        Optimaly this would be possible by simply passing a list containing a
+        single letter to the create_captcha_image method, however, it didn't
+        work so creating a second method was easier.
+        """
+        image = Image.new('RGB', (self._width, self._height), background)
+        draw = Draw(image)
+
+        def _draw_character(c):
+            font = random.choice(self.truefonts)
+            w, h = draw.textsize(c, font=font)
+
+            dx = random.randint(0, 4)
+            dy = random.randint(0, 6)
+            im = Image.new('RGBA', (w + dx, h + dy))
+            Draw(im).text((dx, dy), c, font=font, fill=color)
+
+            # rotate
+            im = im.crop(im.getbbox())
+            im = im.rotate(random.uniform(-30, 30), Image.BILINEAR, expand=1)
+
+            # warp
+            dx = w * random.uniform(0.1, 0.3)
+            dy = h * random.uniform(0.2, 0.3)
+            x1 = int(random.uniform(-dx, dx))
+            y1 = int(random.uniform(-dy, dy))
+            x2 = int(random.uniform(-dx, dx))
+            y2 = int(random.uniform(-dy, dy))
+            w2 = w + abs(x1) + abs(x2)
+            h2 = h + abs(y1) + abs(y2)
+            data = (
+                x1, y1,
+                -x1, h2 - y2,
+                w2 + x2, h2 + y2,
+                w2 - x2, -y1,
+            )
+            im = im.resize((w2, h2))
+            im = im.transform((w, h), Image.QUAD, data)
+            return im
+
+        im = _draw_character(letter)
+        im = im.resize((self._width, self._height))
+
+        return im
+
     def create_captcha_image(self, chars, color, background):
         """Create the CAPTCHA image itself.
 
@@ -193,7 +260,7 @@ class ImageCaptcha(_Captcha):
         images = []
         is_space = []
         for c in chars:
-            if random.random() > 0.5:
+            if random.random() > 0.5 and len(chars) > 1:  # skip for only one
                 images.append(_draw_character(" "))
                 is_space.append(True)
             images.append(_draw_character(c))
