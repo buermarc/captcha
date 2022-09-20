@@ -15,9 +15,17 @@ def print_dataset(dataset):
 
 
 def show_dataset(image, target, threshold: float = 0.0, ret: bool = False) -> Optional[Image]:
-    boxes = target.get('boxes').detach().numpy()
-    labels = target.get('labels').detach().numpy()
-    scores = target.get('scores').detach().numpy()
+    if isinstance(target.get('boxes'), torch.Tensor):
+        boxes = target.get('boxes').detach().numpy()
+        labels = target.get('labels').detach().numpy()
+        scores = target.get('scores').detach().numpy()
+    elif isinstance(target.get('boxes'), list):
+        boxes = target.get('boxes')
+        labels = target.get('labels')
+        scores = target.get('scores')
+    else:
+        raise TypeError(f"target content of type {type(target.get('boxes'))} expected torch.Tensor or List")
+
     draw = Draw(image)
     for score, label, box in zip(scores, labels, boxes):
         if score > threshold:
