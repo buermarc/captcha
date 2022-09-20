@@ -1,8 +1,24 @@
 import pytorch_lightning as pl
-from torchvision.models.detection.faster_rcnn import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+from torchvision.models.detection.faster_rcnn import fasterrcnn_mobilenet_v3_large_320_fpn
 import torch
+import json
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
-from torchvision.models.resnet import ResNet50_Weights
+from torchvision.models.mobilenetv3 import MobileNet_V3_Large_Weights
+import torchvision
+from typing import List
+from PIL import Image
+import os
+
+
+def evaluate_test_images(image_names: List[str], image_tensors: torch.Tensor, epoch: int, model, log_dir: str) -> None:
+    outputs = model.forward(image_tensors)
+    for name, _dict in zip(image_names, outputs):
+        for key in _dict.keys():
+            _dict[key] = _dict[key].tolist()
+        _dict["name"] = name
+
+    with open(log_dir + f"/epoch_{epoch}_test_output.json", mode="w+") as _file:
+        json.dump(outputs, _file)
 
 
 class CustomRcnnLightningModel(pl.LightningModule):
@@ -10,15 +26,31 @@ class CustomRcnnLightningModel(pl.LightningModule):
     def __init__(self, num_classes: int = 62+1, pretrained: bool = False):
         super().__init__()
 
+        '''
         self.model = fasterrcnn_resnet50_fpn_v2(
             weights_backbone=ResNet50_Weights.DEFAULT,
-            num_classes=num_classes
+            num_classes=num_classes,
+            trainable_backbone_layers=0
+        )
+        '''
+        self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
+            weights_backbone=MobileNet_V3_Large_Weights.DEFAULT,
+            num_classes=num_classes,
+            trainable_backbone_layers=3
         )
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
 
         self._pretrained = pretrained
         self._in_features = in_features
         self._num_classes = num_classes
+
+        image_files = os.listdir("./data/save_test/")
+        image_tensors = torch.zeros((len(image_files), 3, 60, 160))
+        for idx, image in enumerate(image_files):
+            testimage = Image.open(f"./data/save_test/{image}")
+            image_tensors[idx] = torchvision.transforms.ToTensor()(testimage)
+        self.image_tensors = image_tensors.to("cuda").double()
+        self.image_names = image_files
 
     def forward(self, image):
         self.model.eval()
@@ -50,11 +82,14 @@ class CustomRcnnLightningModel(pl.LightningModule):
         return val_map
 
     def validation_epoch_end(self, validation_step_outputs):
+        self.model.eval()
+        evaluate_test_images(self.image_names, self.image_tensors, self.current_epoch, self.model, self.logger.log_dir)
         self.log("val_loss_mean", torch.mean(torch.Tensor(validation_step_outputs)))
+        self.model.train()
 
     def configure_optimizers(self):
-        SGD_kwargs = {"lr": 0.005, "momentum": 0.9, "weight_decay": 0.005}
-        StepLR_kwargs = {"step_size": 3, "gamma": 0.7}
+        SGD_kwargs = {"lr": 0.004, "momentum": 0.5, "weight_decay": 0.01}
+        StepLR_kwargs = {"step_size": 8, "gamma": 0.7}
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, **SGD_kwargs)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
