@@ -26,13 +26,6 @@ class CustomRcnnLightningModel(pl.LightningModule):
     def __init__(self, num_classes: int = 62+1, pretrained: bool = False):
         super().__init__()
 
-        '''
-        self.model = fasterrcnn_resnet50_fpn_v2(
-            weights_backbone=ResNet50_Weights.DEFAULT,
-            num_classes=num_classes,
-            trainable_backbone_layers=0
-        )
-        '''
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
             weights_backbone=MobileNet_V3_Large_Weights.DEFAULT,
             num_classes=num_classes,
