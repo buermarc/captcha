@@ -51,12 +51,14 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from pathlib import Path
 import os
+import utils
 from torch.utils.data import DataLoader
 from captcha_dataset import CaptachDataset
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchinfo import summary
 from pytorch_lightning.callbacks import LearningRateMonitor
+from torchvision.utils import save_image
 
 
 PREFERRED_DATATYPE = torch.double
@@ -107,6 +109,13 @@ class CVAE(pl.LightningModule):
             num_classes,
             device
         )
+        self.static_labels = ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+        self.static_encoded_labels = utils.encode_label(
+            ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+        )
+        self.static_latent = torch.randn(
+            (3, self.latent_dim)
+        ).to(self.device_str).to(torch.double)
 
     def forward(self, x, c=None):
         """
@@ -161,8 +170,21 @@ class CVAE(pl.LightningModule):
         self.log("val_loss", val_loss, batch_size=batch_size)
         return loss
 
-    def validation_epoch_end(self, validation_step_outputs):
-        print("Need to implement test sampling.")
+    def validation_epoch_end(self, _validation_step_outputs):
+        image_dir = f"{self.logger.log_dir}/sampled_images"
+
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
+
+        for label, elabel in zip(self.static_labels, self.static_encoded_labels):
+            images = self.decoder(self.static_latent, torch.ones(len(self.static_latent)).to(self.device_str).to(torch.int64) * elabel)
+
+            for idx, image in enumerate(images):
+                with open(
+                    f"{image_dir}/epoch-{self.current_epoch}-lat-{idx}-label-{label}.png",
+                    mode="wb+"
+                ) as _file:
+                    save_image(image, _file, format="png")
 
     def configure_optimizers(self):
         Adam_kwargs = {"lr": 0.005, "weight_decay": 0.01}
@@ -301,7 +323,7 @@ class Decoder(nn.Module):
         z = torch.cat((z, one_hot), dim=1)
 
         z = self.fcl(z)
-        z = z.view(-1, 16, 15, 30)
+        z = z.view(-1, 16, 30, 15)
         x = self.network(z)
         return x
 
