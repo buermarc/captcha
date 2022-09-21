@@ -29,14 +29,14 @@ class CustomRcnnLightningModel(pl.LightningModule):
         '''
         self.model_name = "fasterrcnn_mobilenet_v3_large_320_fpn"
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
-            weights_backbone=MobileNet_V3_Large_Weights.DEFAULT,
+            weights_backbone=MobileNet_V3_Large_Weights.DEFAULT if pretrained else None,
             num_classes=num_classes,
             trainable_backbone_layers=3
         )
         '''
         self.model_name = "fasterrcnn_resnet50_fpn_v2"
         self.model = fasterrcnn_resnet50_fpn_v2(
-            weights_backbone=ResNet50_Weights.DEFAULT,
+            weights_backbone=ResNet50_Weights.DEFAULT if pretrained else None,
             num_classes=num_classes,
             trainable_backbone_layers=3
         )
@@ -90,8 +90,8 @@ class CustomRcnnLightningModel(pl.LightningModule):
         self.model.train()
 
     def configure_optimizers(self):
-        SGD_kwargs = {"lr": 0.004, "momentum": 0.5, "weight_decay": 0.01}
-        StepLR_kwargs = {"step_size": 5, "gamma": 0.7}
+        SGD_kwargs = {"lr": 0.005, "momentum": 0.5, "weight_decay": 0.01}
+        StepLR_kwargs = {"step_size": 2, "gamma": 0.7}
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, **SGD_kwargs)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
