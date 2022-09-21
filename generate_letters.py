@@ -24,7 +24,7 @@ def generate_letter(
 
     image.write_letter(letter, f"{outdir}/{filename}")
 
-    labels[filename] = {
+    labels[filename.replace(".png", "")] = {
         "labels": letter,
     }
 
