@@ -4,14 +4,14 @@ import torch
 from torch.utils.data import DataLoader
 from captcha_dataset import CaptachDataset
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from custom_rcnn_lightning_model import CustomRcnnLightningModel
 from pytorch_lightning.loggers import TensorBoardLogger
 from torchinfo import summary
 from pytorch_lightning.callbacks import LearningRateMonitor
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 24
+BATCH_SIZE = 1
 DATADIR = "data/"
 
 
@@ -57,22 +57,31 @@ if __name__ == '__main__':
         "batch_size": BATCH_SIZE,
         "train_data_size": len(train_data),
         "val_data_size": len(val_data),
+        "model_name(selfset)": model.model_name
     })
 
     early_stopping = EarlyStopping(
         monitor="val_loss_mean",
         min_delta=0.001,
-        patience=5,
+        patience=15,
         mode="max",
         verbose=True,
     )
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=f"{logger.log_dir}/models/",
+        filename="{epoch:02d}-{val_loss:.2f}",
+        monitor="val_loss",
+        mode="max",
+        verbose=True
+    )
+
     trainer = pl.Trainer(
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
-        callbacks=[early_stopping, lr_monitor],
+        callbacks=[early_stopping, lr_monitor, checkpoint_callback],
         max_epochs=100,
         logger=logger,
         log_every_n_steps=50,

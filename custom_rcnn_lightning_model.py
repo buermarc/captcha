@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from torchvision.models.detection.faster_rcnn import fasterrcnn_mobilenet_v3_large_320_fpn
+from torchvision.models.detection.faster_rcnn import fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_resnet50_fpn_v2, ResNet50_Weights
 import torch
 import json
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
@@ -26,8 +26,17 @@ class CustomRcnnLightningModel(pl.LightningModule):
     def __init__(self, num_classes: int = 62+1, pretrained: bool = False):
         super().__init__()
 
+        '''
+        self.model_name = "fasterrcnn_mobilenet_v3_large_320_fpn"
         self.model = fasterrcnn_mobilenet_v3_large_320_fpn(
             weights_backbone=MobileNet_V3_Large_Weights.DEFAULT,
+            num_classes=num_classes,
+            trainable_backbone_layers=3
+        )
+        '''
+        self.model_name = "fasterrcnn_resnet50_fpn_v2"
+        self.model = fasterrcnn_resnet50_fpn_v2(
+            weights_backbone=ResNet50_Weights.DEFAULT,
             num_classes=num_classes,
             trainable_backbone_layers=3
         )
