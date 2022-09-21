@@ -20,22 +20,30 @@ class CaptachDataset(Dataset):
         transform: Any = None,
         file_ending: str = "png",
         preferred_datatyp=torch.double,
+        is_captcha: bool = True,
     ):
         self.image_path = image_path
         self.label_file = label_file
+        self.is_captcha = is_captcha
         with open(self.label_file, mode="r") as _file:
             labels_json = json.load(_file)
-            self.labels_json = {
-                content: {
-                    "boxes": torch.Tensor(labels_json[content]["boxes"]).to(
-                        torch.int64
-                    ),
-                    "labels": torch.Tensor(
-                        utils.encode_label(labels_json[content]["labels"])
-                    ).to(torch.int64),
+            if self.is_captcha:
+                self.labels_json = {
+                    content: {
+                        "boxes": torch.Tensor(labels_json[content]["boxes"]).to(
+                            torch.int64
+                        ),
+                        "labels": torch.Tensor(
+                            utils.encode_label(labels_json[content]["labels"])
+                        ).to(torch.int64),
+                    }
+                    for content in labels_json.keys()
                 }
-                for content in labels_json.keys()
-            }
+            else:
+                self.labels_json = {
+                    content: torch.Tensor([utils.encode_label(labels_json[content]["labels"])]).to(torch.int64)
+                    for content in labels_json.keys()
+                }
 
         self.use_cache = use_cache
         self.transform = transform

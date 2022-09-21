@@ -46,58 +46,65 @@ Broader Prolbems that should be considered:
       more likely)
 
 '''
-from typing import List
 import torch
 import torch.nn as nn
+import pytorch_lightning as pl
+from pathlib import Path
+import os
+from torch.utils.data import DataLoader
+from captcha_dataset import CaptachDataset
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
+from torchinfo import summary
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 
-def idx2onehot(idx, n):
+PREFERRED_DATATYPE = torch.double
+BATCH_SIZE = 2
+DATADIR = "data/letters/"
+
+
+def idx2onehot(idx, n, device_str):
+    idx = idx - 1
+
     assert torch.max(idx).item() < n
     if idx.dim() == 1:
         idx = idx.unsqueeze(1)
 
-    onehot = torch.zeros(idx.size(0), n)
+    onehot = torch.zeros(idx.size(0), n).to(device_str)
     onehot.scatter_(1, idx, 1)
 
     return onehot
 
 
-class CVAE(nn.Module):
+class CVAE(pl.LightningModule):
 
     def __init__(
         self,
-        encoder_layer_sizes,
-        decoder_layer_sizes, latent_dim,
-        num_labels: int = 5,
-        conditional=False,
-        device: str = "gpu"
+        latent_dim,
+        num_classes: int = 5,
+        device: str = "cuda"
     ):
         """
         Arguments:
-            encoder_layer_sizes (list[int]): list of the sizes of the encoder layers,
-            decoder_layer_sizes (list[int]): list of the sizes of the decoder layers,
             latent_dim (int): dimension of latent space/bottleneck,
-            num_labels (int): amount of labels (important for conditional VAE),,
-            conditional (bool): True if CVAE, else False
+            num_classes (int): amount of labels,
         """
 
         super(CVAE, self).__init__()
 
-        self.device = device
+        self.model_name = "CVAE-V1"
+        self.device_str = device
         self.latent_dim = latent_dim
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.encoder = Encoder(
-            encoder_layer_sizes,
             latent_dim,
-            num_labels,
-            conditional,
+            num_classes,
             device
         )
         self.decoder = Decoder(
-            decoder_layer_sizes,
             latent_dim,
-            num_labels,
-            conditional,
+            num_classes,
             device
         )
 
@@ -112,11 +119,10 @@ class CVAE(nn.Module):
             means: output of encoder,
             log_var: output of encoder (logarithm of variance)
         """
-        batch_size = x.size(0)
-        # x = x.view(-1,3*128*128)
+        batch_size = x.shape[0]
         means, log_vars = self.encoder(x, c)
         sd = torch.exp(log_vars)
-        epsilons = torch.randn((batch_size, self.latent_dim)).to(self.device)
+        epsilons = torch.randn((batch_size, self.latent_dim)).to(self.device_str)
         z = sd * epsilons + means
         recon_x = self.decoder(z, c)
 
@@ -131,79 +137,85 @@ class CVAE(nn.Module):
         Output:
             x_sampled: n randomly sampled elements of the output distribution
         """
-        lat_vec = torch.randn((n, self.latent_dim)).to(self.device)
+        lat_vec = torch.randn((n, self.latent_dim)).to(self.device_str)
         x_sampled = self.decoder(lat_vec, c)
         return x_sampled
+
+    def training_step(self, batch, batch_idx):
+        image, target = batch
+        batch_size = image.shape[0]
+
+        recon_batch, mu, log_var = self(image, target)
+        loss = loss_function(recon_batch, image, mu, log_var)
+        train_loss = loss.item()
+        self.log("train_loss", train_loss, batch_size=batch_size)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        image, target = batch
+        batch_size = image.shape[0]
+
+        recon_batch, mu, log_var = self(image, target)
+        loss = loss_function(recon_batch, image, mu, log_var)
+        val_loss = loss.item()
+        self.log("val_loss", val_loss, batch_size=batch_size)
+        return loss
+
+    def validation_epoch_end(self, validation_step_outputs):
+        print("Need to implement test sampling.")
+
+    def configure_optimizers(self):
+        Adam_kwargs = {"lr": 0.005, "weight_decay": 0.01}
+        StepLR_kwargs = {"step_size": 2, "gamma": 0.7}
+
+        params = [p for p in self.parameters() if p.requires_grad]
+        optimizer = torch.optim.Adam(params, **Adam_kwargs)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
+
+        assert self.logger
+        self.logger.log_hyperparams(Adam_kwargs)
+        self.logger.log_hyperparams(StepLR_kwargs)
+        self.logger.log_hyperparams({
+            "latent_dim": self.latent_dim,
+            "num_classes": self.num_classes,
+        })
+
+        return [optimizer], [lr_scheduler]
 
 
 class Encoder(nn.Module):
 
     def __init__(
         self,
-        layer_sizes: List[int],
         latent_dim: int,
-        num_labels: int,
-        conditional: bool = False,
-        device: str = "gpu"
+        num_classes: int,
+        device: str = "cuda"
     ):
         super(Encoder, self).__init__()
         """
         Arguments:
-            layer_sizes (list[int]): list of sizes of layers of the encoder,
-            latent_dim (int): dimension of latent space, i.e. dimension out output of the encoder,
-            num_labels (int): amount of labels,
-            conditional (bool): True if CVAE and False if VAE
+            latent_dim (int): dim of latent space,
+            num_classes (int): amount of labels,
         """
-        self.device = device
-        self.conditional = conditional
+        self.device_str = device
+        self.num_classes = num_classes
 
-        if self.conditional:
-            layer_sizes[0] += num_labels
-
-
-        '''
-        input: WxH 30x60  # ?any norm?
-        3x30x60 => conv-stride => 8x15x30 // ReLu
-        8x15x30 => normal conv => 16x15x30 // ReLu
-        16x15x30 => fc => 7200
-        '''
-
-        _ = [
-            nn.Conv2d(3, 8, stride=2, padding=2, kernel_size=(3, 3)),
+        args = [
+            nn.Conv2d(4, 8, stride=2, padding=1, kernel_size=(3, 3)),
+            nn.ReLU(),
+            nn.Conv2d(8, 16, stride=1, padding=1, kernel_size=(3, 3)),
+            nn.ReLU(),
         ]
 
-        self.network = nn.Sequential()
+        self.network = nn.Sequential(*args)
 
-        # TODO rework
-        image_size = 512
-        input_size = image_size + num_labels
+        self.fcl = nn.Sequential(
+            nn.Linear((16*15*30)+num_classes, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 2048),
+            nn.ReLU(),
+        )
 
-        self.network.add_module(name="N1", module=nn.Conv2d(3, 8, stride=2, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R1", module=nn.ReLU())
-        self.network.add_module(name="N1a", module=nn.Conv2d(8, 8, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R2", module=nn.ReLU())
-
-        self.network.add_module(name="N2", module=nn.Conv2d(8, 16, stride=2, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R3", module=nn.ReLU())
-        self.network.add_module(name="N2a", module=nn.Conv2d(16, 16, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R3a", module=nn.ReLU())
-
-        self.network.add_module(name="N3", module=nn.Conv2d(16, 32, stride=2, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R4", module=nn.ReLU())
-        self.network.add_module(name="N3a", module=nn.Conv2d(32, 32, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R5", module=nn.ReLU())
-
-        self.network.add_module(name="N4", module=nn.Conv2d(32, 64, stride=2, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R6", module=nn.ReLU())
-        self.network.add_module(name="N4a", module=nn.Conv2d(64, 64, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R7", module=nn.ReLU())
-
-        self.network.add_module(name="N5", module=nn.Conv2d(64, 64, stride=2, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R8", module=nn.ReLU())
-        self.network.add_module(name="N5a", module=nn.Conv2d(64, 64, padding=1, kernel_size=(3,3)))
-        self.network.add_module(name="R9", module=nn.ReLU())
-
-        self.fcl = nn.Sequential(nn.Linear((16*16*64)+num_labels, 2048), nn.ReLU(), nn.Linear(2048, 2048), nn.ReLU())
         self.means_out = nn.Linear(2048, latent_dim)
         self.log_sds_out = nn.Linear(2048, latent_dim)
 
@@ -220,11 +232,11 @@ class Encoder(nn.Module):
         batch_size = x.shape[0]
 
         if c is None:
-            c = torch.zeros((batch_size), dtype=torch.int64)
+            c = torch.ones((batch_size), dtype=torch.int64)
 
-        one_hot = idx2onehot(c, n=5).to(self.device)
+        one_hot = idx2onehot(c, n=self.num_classes, device_str=self.device_str).to(self.device_str)
         x = self.network(x)
-        x = x.view(-1, 16*16*64)
+        x = x.view(-1, 16*15*30)
         x_cat_y = torch.cat((x, one_hot), dim=1)
         x_y = self.fcl(x_cat_y)
         means = self.means_out(x_y)
@@ -237,56 +249,40 @@ class Decoder(nn.Module):
 
     def __init__(
         self,
-        layer_sizes: List[int],
         latent_dim: int,
-        num_labels: int,
-        conditional: bool = False,
-        device: str = "gpu"
+        num_classes: int,
+        device: str = "cuda"
     ):
         super(Decoder, self).__init__()
         """
         Arguments:
-            layer_sizes (list[int]): list of sizes of layers of the decoder,
             latent_dim (int): dimension of latent space, i.e. dimension out
             input of the decoder,
-            num_labels (int): amount of labels,
-            conditional (bool): True if CVAE and False if VAE
+            num_classes (int): amount of labels,
         Output:
             x: Parameters of gaussian distribution; only mu (see above)
         """
 
-        self.device = device
-        self.conditional = conditional
-        if self.conditional:
-            latent_dim += num_labels
+        self.device_str = device
+        self.num_classes = num_classes
 
-        self.network = nn.Sequential()
-        layer_sizes.insert(0, latent_dim)
+        latent_dim += num_classes
 
-        last_ind = len(layer_sizes)-1
+        self.fcl = nn.Sequential(
+            nn.Linear(latent_dim, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 16*15*30),
+            nn.ReLU(),
+        )
 
+        args = [
+            nn.ConvTranspose2d(16, 8, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.Conv2d(8, 4, stride=1, padding=1, kernel_size=(3, 3)),
+            nn.Tanh(),
+        ]
 
-        self.fcl = nn.Sequential(nn.Linear(latent_dim, 2048), nn.ReLU(), nn.Linear(2048, 16*16*64), nn.ReLU())
-
-        channel = 64
-
-        self.network.add_module(name="T1", module=nn.ConvTranspose2d(64, 64, 3, stride=2, padding=1, output_padding=1))
-        self.network.add_module(name="R1", module=nn.ReLU())
-
-        self.network.add_module(name="T2", module=nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=1))
-        self.network.add_module(name="R2", module=nn.ReLU())
-
-        self.network.add_module(name="T3", module=nn.ConvTranspose2d(32, 16, 3, stride=2, padding=1, output_padding=1))
-        self.network.add_module(name="R3", module=nn.ReLU())
-
-        self.network.add_module(name="T4", module=nn.ConvTranspose2d(16, 8, 3, stride=2, padding=1, output_padding=1))
-        self.network.add_module(name="R4", module=nn.ReLU())
-
-        self.network.add_module(name="T5", module=nn.ConvTranspose2d(8, 4, 3, stride=2, padding=1, output_padding=1))
-        self.network.add_module(name="R5", module=nn.ReLU())
-
-        self.network.add_module(name="C6", module=nn.Conv2d(4, 3, kernel_size=(3, 3), padding=1))
-        self.network.add_module(name="T6", module=nn.Tanh())
+        self.network = nn.Sequential(*args)
 
     def forward(self, z, c=None):
         """
@@ -299,13 +295,13 @@ class Decoder(nn.Module):
         batch_size = z.shape[0]
 
         if c is None:
-            c = torch.zeros((batch_size), dtype=torch.int64)
+            c = torch.ones((batch_size), dtype=torch.int64)
 
-        one_hot = idx2onehot(c, n=5).to(self.device)
+        one_hot = idx2onehot(c, n=self.num_classes, device_str=self.device_str).to(self.device_str)
         z = torch.cat((z, one_hot), dim=1)
 
         z = self.fcl(z)
-        z = z.view(-1, 64, 16, 16)
+        z = z.view(-1, 16, 15, 30)
         x = self.network(z)
         return x
 
@@ -317,8 +313,8 @@ def loss_function(recon_x, x, mu, log_var):
         x: input,
         mu, log_var: parameters of posterior (distribution of z given x)
     """
-    x = x.view(-1, 3*512*512)
-    recon_x = recon_x.view(-1, 3*512*512)
+    x = x.view(-1, 4*60*30)
+    recon_x = recon_x.view(-1, 4*60*30)
 
     msd = 1/2 * torch.sum((x-recon_x)**2, dim=1)
     kl_div = 1/2 * torch.sum(mu**2 + torch.exp(log_var)**2 - 2 * log_var - 1)
@@ -326,3 +322,74 @@ def loss_function(recon_x, x, mu, log_var):
     msd_mean = torch.mean(msd)
 
     return (msd_mean + kl_div_mean)
+
+
+if __name__ == '__main__':
+    core_count = os.cpu_count()
+
+    train_data = CaptachDataset(
+        image_path=Path(DATADIR + "train"),
+        label_file=Path(DATADIR + "train_labels.json"),
+        preferred_datatyp=PREFERRED_DATATYPE,
+        is_captcha=False,
+    )
+    val_data = CaptachDataset(
+        image_path=Path(DATADIR + "val"),
+        label_file=Path(DATADIR + "val_labels.json"),
+        preferred_datatyp=PREFERRED_DATATYPE,
+        is_captcha=False,
+    )
+
+    train_dataloader = DataLoader(
+        train_data,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=core_count if core_count else 4
+    )
+
+    val_dataloader = DataLoader(
+        val_data,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=core_count if core_count else 4
+    )
+
+    model = CVAE(latent_dim=2048, num_classes=62+1)
+    # summary(model, device='cuda', input_size=(BATCH_SIZE, 4, 60, 30))
+
+    logger = TensorBoardLogger("cvae_tb_logs", name="CVAE")
+    logger.log_hyperparams({
+        "batch_size": BATCH_SIZE,
+        "train_data_size": len(train_data),
+        "val_data_size": len(val_data),
+        "model_name(selfset)": model.model_name
+    })
+
+    early_stopping = EarlyStopping(
+        monitor="val_loss",
+        min_delta=2,
+        patience=3,
+        mode="min",
+        verbose=True,
+    )
+
+    lr_monitor = LearningRateMonitor(logging_interval='epoch')
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=f"{logger.log_dir}/models/",
+        filename="{epoch:02d}-{val_loss:.2f}",
+        monitor="val_loss",
+        mode="min",
+        verbose=True
+    )
+
+    trainer = pl.Trainer(
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        devices=1,
+        callbacks=[early_stopping, lr_monitor, checkpoint_callback],
+        max_epochs=100,
+        logger=logger,
+        log_every_n_steps=50,
+    )
+
+    trainer.fit(model.to(PREFERRED_DATATYPE), train_dataloader, val_dataloader)

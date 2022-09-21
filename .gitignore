@@ -3,6 +3,7 @@ artifacts/
 data/
 lightning_logs/
 tb_logs/
+cvae_tb_logs/
 
 # Editors
 .vscode/
