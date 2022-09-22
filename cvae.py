@@ -62,14 +62,14 @@ from torchvision.utils import save_image
 
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 DATADIR = "data/letters/"
 
 
 def idx2onehot(idx, n, device_str):
     idx = idx - 1
 
-    assert torch.max(idx).item() < n
+    assert torch.max(idx).item() < n, ValueError(f"{idx} {n}")
     if idx.dim() == 1:
         idx = idx.unsqueeze(1)
 
@@ -109,9 +109,13 @@ class CVAE(pl.LightningModule):
             num_classes,
             device
         )
-        self.static_labels = ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+        # self.static_labels = ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+        # self.static_encoded_labels = utils.encode_label(
+        #     ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+        # )
+        self.static_labels = [str(item) for item in range(10)]
         self.static_encoded_labels = utils.encode_label(
-            ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
+            self.static_labels
         )
         self.static_latent = torch.randn(
             (3, self.latent_dim)
@@ -376,7 +380,7 @@ if __name__ == '__main__':
         num_workers=core_count if core_count else 4
     )
 
-    model = CVAE(latent_dim=2048, num_classes=62+1)
+    model = CVAE(latent_dim=2048, num_classes=10)
     # summary(model, device='cuda', input_size=(BATCH_SIZE, 4, 60, 30))
 
     logger = TensorBoardLogger("cvae_tb_logs", name="CVAE")

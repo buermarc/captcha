@@ -10,7 +10,7 @@ import glob
 
 fonts = glob.glob("pythoncaptcha/*.ttf")
 
-image = ImageCaptcha(fonts=fonts)
+image = ImageCaptcha()
 BASEDIR = "data/letters/"
 
 
@@ -18,7 +18,8 @@ def generate_letter(
     labels: dict, outdir,
 ):
     # we only want one letter
-    letter = random.choice(string.ascii_letters + string.digits)
+    #letter = random.choice(string.ascii_letters + string.digits)
+    letter = random.choice(string.digits)
     _uuid = str(uuid4())
     filename = f"{_uuid}-{letter}.png"
 
