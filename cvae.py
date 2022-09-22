@@ -390,7 +390,7 @@ if __name__ == '__main__':
     early_stopping = EarlyStopping(
         monitor="val_loss",
         min_delta=2,
-        patience=3,
+        patience=10,
         mode="min",
         verbose=True,
     )
