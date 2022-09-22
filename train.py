@@ -11,7 +11,7 @@ from torchinfo import summary
 from pytorch_lightning.callbacks import LearningRateMonitor
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 DATADIR = "data/"
 
 

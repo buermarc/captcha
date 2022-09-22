@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from torchvision.models.detection.faster_rcnn import fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_resnet50_fpn_v2, ResNet50_Weights
+from torchvision.models.detection.faster_rcnn import fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_resnet50_fpn_v2, ResNet50_Weights, fasterrcnn_resnet50_fpn
 import torch
 import json
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
@@ -34,9 +34,9 @@ class CustomRcnnLightningModel(pl.LightningModule):
             trainable_backbone_layers=3
         )
         '''
-        self.model_name = "fasterrcnn_resnet50_fpn_v2"
-        self.model = fasterrcnn_resnet50_fpn_v2(
-            weights_backbone=ResNet50_Weights.DEFAULT if pretrained else None,
+        self.model_name = "fasterrcnn_resnet50_fpn"
+        self.model = fasterrcnn_resnet50_fpn(
+            pretrained_backbone=pretrained,
             num_classes=num_classes,
             trainable_backbone_layers=3
         )
@@ -91,7 +91,7 @@ class CustomRcnnLightningModel(pl.LightningModule):
 
     def configure_optimizers(self):
         SGD_kwargs = {"lr": 0.005, "momentum": 0.5, "weight_decay": 0.01}
-        StepLR_kwargs = {"step_size": 2, "gamma": 0.7}
+        StepLR_kwargs = {"step_size": 4, "gamma": 0.75}
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, **SGD_kwargs)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **StepLR_kwargs)
