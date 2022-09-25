@@ -168,7 +168,7 @@ class ImageCaptcha(_Captcha):
         :param background: color of the background.
 
         The color should be a tuple of 3 numbers, such as (0, 255, 255).
-
+        
         Optimaly this would be possible by simply passing a list containing a
         single letter to the create_captcha_image method, however, it didn't
         work so creating a second method was easier.
@@ -210,8 +210,9 @@ class ImageCaptcha(_Captcha):
 
         im = _draw_character(letter)
         im = im.resize((self._width, self._height))
+        image.paste(im, mask=im.split()[3])
 
-        return im
+        return image
 
     def create_captcha_image(self, chars, color, background):
         """Create the CAPTCHA image itself.
