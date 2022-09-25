@@ -46,11 +46,19 @@ Broader Prolbems that should be considered:
       more likely)
 
 '''
+import math
 import torch
 import torch.nn as nn
+from torch.nn.functional import relu
 import pytorch_lightning as pl
 from pathlib import Path
 import os
+from typing import Tuple, List
+import numpy as np
+from torch.utils.data.dataset import Subset
+
+from torchvision.transforms import transforms
+from torchvision import datasets
 import utils
 from torch.utils.data import DataLoader
 from captcha_dataset import CaptachDataset
@@ -59,10 +67,11 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torchinfo import summary
 from pytorch_lightning.callbacks import LearningRateMonitor
 from torchvision.utils import save_image
+from sklearn.model_selection import train_test_split
 
 
 PREFERRED_DATATYPE = torch.double
-BATCH_SIZE = 1
+BATCH_SIZE = 256
 DATADIR = "data/letters/"
 
 
@@ -85,7 +94,8 @@ class CVAE(pl.LightningModule):
         self,
         latent_dim,
         num_classes: int = 5,
-        device: str = "cuda"
+        device: str = "cuda",
+        channel_width_height: Tuple[int, int, int] = (4, 30, 60)
     ):
         """
         Arguments:
@@ -99,15 +109,21 @@ class CVAE(pl.LightningModule):
         self.device_str = device
         self.latent_dim = latent_dim
         self.num_classes = num_classes
+        self.channel_width_height = channel_width_height
         self.encoder = Encoder(
             latent_dim,
             num_classes,
-            device
+            device,
+            channel_width_height
         )
+        layers = self.encoder.layers
+        layers.reverse()
         self.decoder = Decoder(
             latent_dim,
+            layers,
             num_classes,
-            device
+            device,
+            channel_width_height,
         )
         # self.static_labels = ["Z", "0", "v", "w", "n", "q", "7", "8", "I", "l"]
         # self.static_encoded_labels = utils.encode_label(
@@ -117,6 +133,9 @@ class CVAE(pl.LightningModule):
         self.static_encoded_labels = utils.encode_label(
             self.static_labels
         )
+        '''
+        self.static_encoded_labels = list(range(10))
+        '''
         self.static_latent = torch.randn(
             (3, self.latent_dim)
         ).to(self.device_str).to(torch.double)
@@ -133,7 +152,7 @@ class CVAE(pl.LightningModule):
             log_var: output of encoder (logarithm of variance)
         """
         batch_size = x.shape[0]
-        means, log_vars = self.encoder(x, c)
+        means, log_vars = self.encoder(x.to(torch.double), c)
         sd = torch.exp(log_vars)
         epsilons = torch.randn((batch_size, self.latent_dim)).to(self.device_str)
         z = sd * epsilons + means
@@ -150,7 +169,14 @@ class CVAE(pl.LightningModule):
         Output:
             x_sampled: n randomly sampled elements of the output distribution
         """
-        lat_vec = torch.randn((n, self.latent_dim)).to(self.device_str)
+        means = torch.zeros((1, 350))
+        stds = torch.ones((1, 350))
+
+        lat_vec = torch.normal(means, stds).to(self.device_str)
+        breakpoint()
+        lat_vec = lat_vec.repeat(n, 1)
+
+        #lat_vec = torch.randn((n, self.latent_dim)).to(self.device_str)
         x_sampled = self.decoder(lat_vec, c)
         return x_sampled
 
@@ -159,7 +185,7 @@ class CVAE(pl.LightningModule):
         batch_size = image.shape[0]
 
         recon_batch, mu, log_var = self(image, target)
-        loss = loss_function(recon_batch, image, mu, log_var)
+        loss = loss_function(recon_batch, image, mu, log_var, self.channel_width_height)
         train_loss = loss.item()
         self.log("train_loss", train_loss, batch_size=batch_size)
         return loss
@@ -169,7 +195,7 @@ class CVAE(pl.LightningModule):
         batch_size = image.shape[0]
 
         recon_batch, mu, log_var = self(image, target)
-        loss = loss_function(recon_batch, image, mu, log_var)
+        loss = loss_function(recon_batch, image, mu, log_var, self.channel_width_height)
         val_loss = loss.item()
         self.log("val_loss", val_loss, batch_size=batch_size)
         return loss
@@ -191,8 +217,8 @@ class CVAE(pl.LightningModule):
                     save_image(image, _file, format="png")
 
     def configure_optimizers(self):
-        Adam_kwargs = {"lr": 0.005, "weight_decay": 0.01}
-        StepLR_kwargs = {"step_size": 2, "gamma": 0.7}
+        Adam_kwargs = {"lr": 0.004, "weight_decay": 0.01}
+        StepLR_kwargs = {"step_size": 5, "gamma": 0.75}
 
         params = [p for p in self.parameters() if p.requires_grad]
         optimizer = torch.optim.Adam(params, **Adam_kwargs)
@@ -215,7 +241,8 @@ class Encoder(nn.Module):
         self,
         latent_dim: int,
         num_classes: int,
-        device: str = "cuda"
+        device: str = "cuda",
+        channel_width_height: Tuple[int, int, int] = (3, 30, 60)
     ):
         super(Encoder, self).__init__()
         """
@@ -226,24 +253,67 @@ class Encoder(nn.Module):
         self.device_str = device
         self.num_classes = num_classes
 
+        channel, width, height = channel_width_height
+
+        '''
         args = [
-            nn.Conv2d(4, 8, stride=2, padding=1, kernel_size=(3, 3)),
+            nn.Conv2d(channel, 8, stride=2, padding=1, kernel_size=(3, 3)),
             nn.ReLU(),
             nn.Conv2d(8, 16, stride=1, padding=1, kernel_size=(3, 3)),
             nn.ReLU(),
         ]
 
+        width = int(width / 2)
+        height = int(height / 2)
+
+        self.width = width
+        self.height = height
+
         self.network = nn.Sequential(*args)
 
         self.fcl = nn.Sequential(
-            nn.Linear((16*15*30)+num_classes, 2048),
+            nn.Linear((16*width*height)+num_classes, 2048),
             nn.ReLU(),
             nn.Linear(2048, 2048),
             nn.ReLU(),
         )
+        '''
+        self.channel = channel
+        self.width = width
+        self.height = height
 
+        layers = []
+        layer_amount = 3
+        for _ in range(layer_amount):
+            _width = math.ceil(width/2)
+            _height = math.ceil(height/2)
+            layers.append(
+                (channel*width*height, channel*_width*_height)
+            )
+            width = _width
+            height = _height
+
+        last_in, _ = layers[-1]
+        layers[-1] = (last_in, last_in)
+        layers.append((last_in, latent_dim))
+
+        self.layers = layers.copy()
+
+        first_in, first_out = layers[0]
+        layers[0] = (first_in + num_classes, first_out)
+        _args = []
+        for _in, _out in layers:
+            _args.append(nn.Linear(_in, _out))
+            _args.append(nn.ReLU())
+        self.fcl = nn.Sequential(*_args)
+        print(self.fcl)
+
+        '''
         self.means_out = nn.Linear(2048, latent_dim)
         self.log_sds_out = nn.Linear(2048, latent_dim)
+        '''
+        self.means_out = nn.Linear(latent_dim, latent_dim)
+        self.log_sds_out = nn.Linear(latent_dim, latent_dim)
 
     def forward(self, x, c=None):
         """
@@ -261,8 +331,8 @@ class Encoder(nn.Module):
             c = torch.ones((batch_size), dtype=torch.int64)
 
         one_hot = idx2onehot(c, n=self.num_classes, device_str=self.device_str).to(self.device_str)
-        x = self.network(x)
-        x = x.view(-1, 16*15*30)
+        # x = self.network(x)
+        x = x.view(-1, self.channel*self.width*self.height)
         x_cat_y = torch.cat((x, one_hot), dim=1)
         x_y = self.fcl(x_cat_y)
         means = self.means_out(x_y)
@@ -276,8 +346,10 @@ class Decoder(nn.Module):
     def __init__(
         self,
         latent_dim: int,
+        layers: List[Tuple[int, int]],
         num_classes: int,
-        device: str = "cuda"
+        device: str = "cuda",
+        channel_width_height: Tuple[int, int, int] = (3, 30, 60)
     ):
         super(Decoder, self).__init__()
         """
@@ -294,21 +366,44 @@ class Decoder(nn.Module):
 
         latent_dim += num_classes
 
+        channel, width, height = channel_width_height
+        self.channel = channel
+        self.width = width
+        self.height = height
+        '''
+        channel, width, height = channel_width_height
+        width = int(width / 2)
+        height = int(height / 2)
+
+        self.width = width
+        self.height = height
+
         self.fcl = nn.Sequential(
             nn.Linear(latent_dim, 2048),
             nn.ReLU(),
-            nn.Linear(2048, 16*15*30),
+            nn.Linear(2048, 16*width*height),
             nn.ReLU(),
         )
 
         args = [
             nn.ConvTranspose2d(16, 8, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.Conv2d(8, 4, stride=1, padding=1, kernel_size=(3, 3)),
+            nn.Conv2d(8, channel, stride=1, padding=1, kernel_size=(3, 3)),
             nn.Tanh(),
         ]
 
         self.network = nn.Sequential(*args)
+        '''
+
+        first_in, first_out = layers[0]
+        layers[0] = (first_in, first_out + num_classes)
+        _args = []
+        for _in, _out in layers:
+            _args.append(nn.Linear(_out, _in))
+            _args.append(nn.ReLU())
+        _args[-1] = nn.Tanh()
+        self.fcl = nn.Sequential(*_args)
+        print(self.fcl)
 
     def forward(self, z, c=None):
         """
@@ -327,20 +422,23 @@ class Decoder(nn.Module):
         z = torch.cat((z, one_hot), dim=1)
 
         z = self.fcl(z)
-        z = z.view(-1, 16, 30, 15)
-        x = self.network(z)
+        # z = z.view(-1, 16, self.height, self.width)
+        # x = self.network(z)
+        z = z.view(-1, self.channel, self.height, self.width)
+        x = z
         return x
 
 
-def loss_function(recon_x, x, mu, log_var):
+def loss_function(recon_x, x, mu, log_var, channel_width_height: Tuple[int, int, int]):
     """
     Arguments:
         recon_x: reconstruced input
         x: input,
         mu, log_var: parameters of posterior (distribution of z given x)
     """
-    x = x.view(-1, 4*60*30)
-    recon_x = recon_x.view(-1, 4*60*30)
+    channel, width, height = channel_width_height  # 30, 60
+    x = x.view(-1, channel*height*width)
+    recon_x = recon_x.view(-1, channel*height*width)
 
     msd = 1/2 * torch.sum((x-recon_x)**2, dim=1)
     kl_div = 1/2 * torch.sum(mu**2 + torch.exp(log_var)**2 - 2 * log_var - 1)
@@ -366,28 +464,42 @@ if __name__ == '__main__':
         is_captcha=False,
     )
 
+    train_dataset = train_data
+    val_dataset = val_data
+    '''
+    _transforms = transforms.Compose([transforms.ToTensor()])
+    train_data = datasets.MNIST("./mnistdata/", train=True, download=True, transform=_transforms)
+    val_data = datasets.MNIST("./mnistdata/", train=False, download=True, transform=_transforms)
+    indices = np.arange(len(train_data))
+    train_indices, val_indices = train_test_split(indices, train_size=1000, test_size=200, stratify=train_data.targets)
+
+    # Warp into Subsets and DataLoaders
+    train_dataset = Subset(train_data, train_indices)
+    val_dataset = Subset(train_data, val_indices)
+    '''
+
     train_dataloader = DataLoader(
-        train_data,
+        train_dataset,
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=core_count if core_count else 4
     )
 
     val_dataloader = DataLoader(
-        val_data,
+        val_dataset,
         batch_size=BATCH_SIZE,
         shuffle=False,
         num_workers=core_count if core_count else 4
     )
 
-    model = CVAE(latent_dim=2048, num_classes=10)
-    # summary(model, device='cuda', input_size=(BATCH_SIZE, 4, 60, 30))
+    model = CVAE(latent_dim=350, num_classes=62, channel_width_height=(3, 30, 60), device="cuda")
+    # summary(model, device='cuda', input_size=(BATCH_SIZE, 1, 28, 28))
 
     logger = TensorBoardLogger("cvae_tb_logs", name="CVAE")
     logger.log_hyperparams({
         "batch_size": BATCH_SIZE,
-        "train_data_size": len(train_data),
-        "val_data_size": len(val_data),
+        "train_data_size": len(train_dataset),
+        "val_data_size": len(val_dataset),
         "model_name(selfset)": model.model_name
     })
 
