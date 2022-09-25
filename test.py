@@ -17,11 +17,19 @@ from custom_rcnn_lightning_model import CustomRcnnLightningModel
 pictures: Dict[str, Optional[Image.Image]] = {}
 outputs = []
 
-VERSION = 59
-THRESHOLD = 0.3
+VERSION = 2
+THRESHOLD = 0.8
 
+def index_v1() -> HTMLResponse:
+    _html = "<html>"
+    keys = pictures.keys()
+    _html += "</html>"
+    for image_key in keys:
+        _html += f'<img src="/image/{image_key}" alt="/image/{image_key}">\n'
+        _html += "<br>\n"
+    return HTMLResponse(_html)
 
-def index() -> HTMLResponse:
+def index_v2() -> HTMLResponse:
     _re = re.compile(r".*epoch_(?P<epoch>[0-9]+)_test_output.*-(?P<image>.+\.png)")
     print(pictures)
     _html = "<html>\n"
@@ -55,19 +63,19 @@ def serve_image_file(file_name: str) -> StreamingResponse:
 
 def load_v1() -> None:
     checkpoint_file = os.listdir(
-        f"./tb_logs/CustomRcnnLightningModel/version_{VERSION}/checkpoints/"
+        f"./tb_logs/CustomRcnnLightningModel/version_{VERSION}/models/"
     )[0]
 
     model = CustomRcnnLightningModel.load_from_checkpoint(
-        f"./tb_logs/CustomRcnnLightningModel/version_{VERSION}/checkpoints/{checkpoint_file}"
+        f"./tb_logs/CustomRcnnLightningModel/version_{VERSION}/models/{checkpoint_file}"
     )
 
     images = {}
-    image_files = os.listdir("./data/save_test/")
+    image_files = os.listdir("./data/test/")
 
     image_tensors = torch.zeros((len(image_files), 3, 60, 160))
     for idx, image in enumerate(image_files):
-        testimage = Image.open(f"./data/save_test/{image}")
+        testimage = Image.open(f"./data/test/{image}")
         images[image] = testimage
         image_tensors[idx] = torchvision.transforms.ToTensor()(testimage)
 
@@ -126,7 +134,7 @@ def load_v2() -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI()
-    load_v2()
-    app.add_api_route("/", index)
+    load_v1()
+    app.add_api_route("/", index_v1)
     app.add_api_route("/image/{file_name}", serve_image_file)
     return app
