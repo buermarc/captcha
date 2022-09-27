@@ -13,6 +13,12 @@ from PIL import ImageFilter
 from PIL.ImageDraw import Draw
 from PIL.ImageFont import truetype
 from io import BytesIO
+
+import torchvision
+from cvae import CVAE
+from sample_cvae import DEVICE_STR, PREFERRED_DATATYPE
+from utils import encode_label
+import torch
 try:
     from wheezy.captcha import image as wheezy_captcha
 except ImportError:
@@ -69,6 +75,11 @@ class _Captcha(object):
         self._height = 60
         im = self.create_captcha_letter(letter, color, background)
         im.save(output, format=format)
+
+    def write_with_cvae(self, chars, output, model: CVAE, format='png'):
+        im, _ = self.generate_image_with_cvae(chars, model)
+        im.save(output, format=format)
+        return None
 
 
 class WheezyCaptcha(_Captcha):
@@ -214,6 +225,103 @@ class ImageCaptcha(_Captcha):
 
         return image
 
+    def create_captcha_image_with_cvae(self, chars, color, background, model: CVAE):
+        """Create the CAPTCHA image itself.
+
+        :param chars: text to be generated.
+        :param color: color of the text.
+        :param background: color of the background.
+
+        The color should be a tuple of 3 numbers, such as (0, 255, 255).
+        """
+        image = Image.new('RGB', (self._width, self._height), background)
+        draw = Draw(image)
+        to_pil = torchvision.transforms.ToPILImage()
+
+        def _draw_character(c):
+            font = random.choice(self.truefonts)
+            w, h = draw.textsize(c, font=font)
+
+            dx = random.randint(0, 4)
+            dy = random.randint(0, 6)
+            
+            if c == " ":
+                im = Image.new('RGB', (w + dx, h + dy))
+                Draw(im).text((dx, dy), c, font=font, fill=color)
+            else:
+                encoded_label = encode_label(str(c))
+                label = torch.ones((1,1)) * encoded_label
+                label = label.to(torch.int64).to(DEVICE_STR)  # labels can be int
+                im = model.sampling(n=1, c=label)
+                im = to_pil(im[0])
+
+            # Draw(im).text((dx, dy), c, font=font, fill=color)
+
+            # rotate
+            '''
+            im = im.crop(im.getbbox())
+            im = im.rotate(random.uniform(-30, 30), Image.BILINEAR, expand=1)
+
+            # warp
+            dx = w * random.uniform(0.1, 0.3)
+            dy = h * random.uniform(0.2, 0.3)
+            x1 = int(random.uniform(-dx, dx))
+            y1 = int(random.uniform(-dy, dy))
+            x2 = int(random.uniform(-dx, dx))
+            y2 = int(random.uniform(-dy, dy))
+            w2 = w + abs(x1) + abs(x2)
+            h2 = h + abs(y1) + abs(y2)
+            data = (
+                x1, y1,
+                -x1, h2 - y2,
+                w2 + x2, h2 + y2,
+                w2 - x2, -y1,
+            )
+            im = im.resize((w2, h2))
+            im = im.transform((w, h), Image.QUAD, data)
+            '''
+            return im
+
+        images = []
+        is_space = []
+        for c in chars:
+            if random.random() > 0.5 and len(chars) > 1:  # skip for only one
+                images.append(_draw_character(" "))
+                is_space.append(True)
+            images.append(_draw_character(c))
+            is_space.append(False)
+
+        text_width = sum([im.size[0] for im in images])
+
+        width = max(text_width, self._width)
+        image = image.resize((width, self._height))
+
+        average = int(text_width / len(chars))
+        rand = int(0.25 * average)
+        offset = int(average * 0.1)
+
+        offset_points = []
+
+        for idx, im in enumerate(images):
+            w, h = im.size
+            mask = im.convert('L').point(table)
+            upper = int((self._height - h) / 2)
+            image.paste(im, (offset, upper), mask)
+            left = offset
+            if(not is_space[idx]):
+                offset_points.append(((max(left,0), max(upper, 0)),(min(left+w, width-1),min(upper+h, self._height-1))))
+            offset = offset + w + random.randint(-rand, 0)
+
+        if width > self._width:
+            ratio = self._width / width
+            for idx in range(len(offset_points)):
+                offset_points[idx] = tuple([(min(int(float(w)*ratio),self._width-1),h) for w,h in offset_points[idx]])
+            image = image.resize((self._width, self._height))
+
+        # breakpoint()
+        image.save("/tmp/out.png")
+        return image, offset_points
+
     def create_captcha_image(self, chars, color, background):
         """Create the CAPTCHA image itself.
 
@@ -280,9 +388,10 @@ class ImageCaptcha(_Captcha):
 
         for idx, im in enumerate(images):
             w, h = im.size
-            mask = im.convert('L').point(table)
+            # mask = im.convert('L').point(table)
             upper = int((self._height - h) / 2)
-            image.paste(im, (offset, upper), mask)
+            # image.paste(im, (offset, upper), mask)
+            image.paste(im, (offset, upper))
             left = offset
             if(not is_space[idx]):
                 offset_points.append(((max(left,0), max(upper, 0)),(min(left+w, width-1),min(upper+h, self._height-1))))
@@ -312,6 +421,19 @@ class ImageCaptcha(_Captcha):
             for points in offset_points:
                 draw.rectangle(points, outline="red")
         return im, offset_points
+
+    def generate_image_with_cvae(self, chars, model):
+        """Generate the image of the given characters.
+
+        :param chars: text to be generated.
+        """
+        background = random_color(238, 255)
+        color = random_color(10, 200, random.randint(220, 255))
+        im, _ = self.create_captcha_image_with_cvae(chars, color, background, model)
+        self.create_noise_dots(im, color)
+        self.create_noise_curve(im, color)
+        im = im.filter(ImageFilter.SMOOTH)
+        return im, None
 
 
 def random_color(start, end, opacity=None):

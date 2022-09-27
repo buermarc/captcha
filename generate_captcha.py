@@ -5,13 +5,32 @@ import random, string
 import json
 import os
 import sys
+from cvae import CVAE
+import glob
+
+from sample_cvae import DEVICE_STR, LATENT_DIM, PREFERRED_DATATYPE
 
 image = ImageCaptcha()
-BASEDIR = "data/"
+BASEDIR = "data-generated-with-cvae/"
+VERSION = 49
+
+
+def load_model(version: int) -> CVAE:
+    checkpoint_file = glob.glob(f"cvae_tb_logs/CVAE/version_{version}/models/*.ckpt")[0]
+    model = CVAE.load_from_checkpoint(
+        checkpoint_file,
+        latent_dim=LATENT_DIM,
+        num_classes=62,
+        channel_width_height=(3, 30, 60),
+    )
+    model.device_str = DEVICE_STR
+    model.to(PREFERRED_DATATYPE)
+    model.to(DEVICE_STR)
+    return model
 
 
 def generate_python_captcha(
-    labels: dict, outdir, number_of_chars: int = 0, boxes: bool = False
+    labels: dict, outdir, model, number_of_chars: int = 0
 ):
     if number_of_chars == 0:
         number_of_chars = random.randrange(3) + 4
@@ -20,12 +39,14 @@ def generate_python_captcha(
         for _ in range(number_of_chars)
     )  # take uppercase only to reduce similar chars like w and W
 
-    offset_points = image.write(content, f"{outdir}/{content}.png", boxes=boxes)
+    _ = image.write_with_cvae(content, f"{outdir}/{content}.png", model)
 
+    '''
     labels[content] = {
         "boxes": [[x1, y1, x2, y2] for (x1, y1), (x2, y2) in offset_points],
         "labels": [*content],
     }
+    '''
 
     return labels
 
@@ -111,8 +132,9 @@ if __name__ == "__main__":
             os.makedirs(outdir)
 
         labels = {}
+        model = load_model(VERSION)
         for i in range(amount):
-            labels = generate_python_captcha(labels, outdir, boxes=False)
+            labels = generate_python_captcha(labels, outdir, model)
 
         if os.path.exists(label_file) and not args.delete:
             print("Label file already exists, --delete to override.")
