@@ -7,9 +7,14 @@ from PIL.Image import Image
 
 
 def print_dataset(dataset):
-    boxes = dataset.get('boxes').detach().numpy()
-    labels = dataset.get('labels').detach().numpy()
-    scores = dataset.get('scores').detach().numpy()
+    if isinstance(dataset.get('boxes'), np.ndarray):
+        boxes = dataset.get('boxes')
+        labels = dataset.get('labels')
+        scores = dataset.get('scores')
+    else:
+        boxes = dataset.get('boxes').detach().numpy()
+        labels = dataset.get('labels').detach().numpy()
+        scores = dataset.get('scores').detach().numpy()
     for label, box, score in zip(labels, boxes, scores):
         print(f"Label: {decode_label(label)}, Box: {box}, Score: {score}\n")
 
@@ -19,7 +24,7 @@ def show_dataset(image, target, threshold: float = 0.0, ret: bool = False) -> Op
         boxes = target.get('boxes').detach().numpy()
         labels = target.get('labels').detach().numpy()
         scores = target.get('scores').detach().numpy()
-    elif isinstance(target.get('boxes'), list):
+    elif isinstance(target.get('boxes'), list) or isinstance(target.get('boxes'), np.ndarray):
         boxes = target.get('boxes')
         labels = target.get('labels')
         scores = target.get('scores')
@@ -136,9 +141,14 @@ def _check_letters_correct_number(x, y):
 
 
 def _sort_labels_threshold(dataset, threshold):
-    boxes = dataset.get('boxes').detach().numpy()
-    labels = dataset.get('labels').detach().numpy()
-    scores = dataset.get('scores').detach().numpy()
+    if isinstance(dataset.get('boxes'), np.ndarray):
+        boxes = dataset.get('boxes')
+        labels = dataset.get('labels')
+        scores = dataset.get('scores')
+    else:
+        boxes = dataset.get('boxes').detach().numpy()
+        labels = dataset.get('labels').detach().numpy()
+        scores = dataset.get('scores').detach().numpy()
 
     boxes_upper_left = boxes[:, 0]
     index_order = np.argsort(boxes_upper_left)
