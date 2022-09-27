@@ -173,8 +173,7 @@ class CVAE(pl.LightningModule):
         stds = torch.ones((1, 350))
 
         lat_vec = torch.normal(means, stds).to(self.device_str)
-        breakpoint()
-        lat_vec = lat_vec.repeat(n, 1)
+        lat_vec = lat_vec.repeat(n, 1).to(PREFERRED_DATATYPE)
 
         #lat_vec = torch.randn((n, self.latent_dim)).to(self.device_str)
         x_sampled = self.decoder(lat_vec, c)
